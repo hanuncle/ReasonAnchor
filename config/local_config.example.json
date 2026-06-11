@@ -1,0 +1,28 @@
+{
+  "yara": {
+    "rules_dir": "modules/<module_id>/config_files/yara_rules/default"
+  },
+  "detect_it_easy": {
+    "path": "CHANGE_ME_DIEC_PATH",
+    "timeout_seconds": 30
+  },
+  "capa": {
+    "path": "CHANGE_ME_CAPA_PATH",
+    "timeout_seconds": 60
+  },
+  "floss": {
+    "path": "CHANGE_ME_FLOSS_PATH",
+    "timeout_seconds": 60
+  },
+  "virustotal": {
+    "api_key": "YOUR_VT_API_KEY",
+    "endpoint": "https://www.virustotal.com/api/v3/files/{hash}",
+    "behaviour_endpoint": "https://www.virustotal.com/api/v3/files/{hash}/behaviour_summary",
+    "timeout_seconds": 30
+  },
+  "malwarebazaar": {
+    "auth_key": "YOUR_MB_AUTH_KEY",
+    "endpoint": "https://mb-api.abuse.ch/api/v1/",
+    "timeout_seconds": 30
+  }
+}

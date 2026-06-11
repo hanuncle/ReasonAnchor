@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>模块与流程 - SecurityFunctionPlatform</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <h1>SecurityFunctionPlatform</h1>
+        <nav class="side-nav" aria-label="主导航">
+          <a href="/">分析工作台</a>
+          <a class="active" href="/modules.html">模块与流程</a>
+          <a href="/config.html">配置中心</a>
+          <a href="/platform.html">平台与模块</a>
+          <a href="/raw-data.html">原始数据</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header class="page-header">
+          <h2>模块与流程管理</h2>
+          <p id="status-line" role="status">正在连接本地 API...</p>
+        </header>
+
+        <section>
+          <h3>模块导入导出</h3>
+          <div class="inline-controls">
+            <button id="import-module-button" type="button">导入模块</button>
+            <button id="refresh-modules-button" type="button">刷新模块</button>
+            <input
+              id="module-import-file"
+              type="file"
+              accept=".zip,.sfpmod,.sfpmod.zip"
+              hidden
+            />
+          </div>
+          <div id="module-list" class="list-block empty-state">暂无模块。</div>
+          <pre id="package-output">{}</pre>
+        </section>
+
+        <section>
+          <h3>流程模板列表</h3>
+          <div class="inline-controls">
+            <select id="workflow-select"></select>
+            <button id="refresh-workflows-button" type="button">刷新</button>
+            <button id="load-workflow-button" type="button">加载</button>
+            <button id="delete-workflow-button" type="button">删除</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>流程模板配置</h3>
+          <div class="form-grid">
+            <label class="field">
+              <span>名称</span>
+              <input id="workflow-name" type="text" />
+            </label>
+            <label class="field">
+              <span>风险</span>
+              <select id="workflow-risk">
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+              </select>
+            </label>
+            <label class="field wide">
+              <span>描述</span>
+              <input id="workflow-description" type="text" />
+            </label>
+            <label class="field wide">
+              <span>标签</span>
+              <input id="workflow-tags" type="text" placeholder="逗号分隔" />
+            </label>
+          </div>
+          <div class="inline-controls">
+            <label><input id="workflow-network" type="checkbox" /> 联网</label>
+            <label><input id="workflow-config-required" type="checkbox" /> 需要配置</label>
+            <label><input id="workflow-default-safe" type="checkbox" /> 默认安全</label>
+          </div>
+          <textarea id="workflow-json" rows="10" spellcheck="false"></textarea>
+          <div class="inline-controls">
+            <button id="save-workflow-button" type="button">另存为流程</button>
+            <button id="update-workflow-button" type="button">更新流程</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>函数选择</h3>
+          <div id="function-list" class="list-block empty-state">暂无函数。</div>
+          <button id="build-workflow-button" type="button">生成流程 JSON</button>
+        </section>
+      </main>
+    </div>
+    <script src="/static/common.js"></script>
+    <script src="/static/modules.js"></script>
+  </body>
+</html>

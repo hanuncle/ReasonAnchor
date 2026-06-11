@@ -1,0 +1,113 @@
+# SecurityFunctionPlatform Codex Skill
+
+## Platform
+
+SecurityFunctionPlatform is a local MCP-driven security function orchestration platform. It can create or reuse analysis sessions, list available modules, list registered functions, apply workflows, run workflows, return compact `ai_output`, expose selected raw evidence by `raw_output_id`, let Codex improve module code/resources, and save a final structured result.
+
+Use the platform for local security analysis workflows. Do not execute uploaded samples, do not upload sample bytes to external services, and do not read or print `config/local_config.json`.
+
+## Required Flow
+
+1. Call `get_platform_skill`.
+2. Call `list_modules`.
+3. Ask the user to choose a module unless the user already named one.
+4. Call `get_module_skill(module_id)` only for the selected module.
+5. Use `get_module_detail(module_id)` when manifest details, functions, workflows, config fields, or validation status are needed.
+6. Before analysis work starts, ask whether module code self-iteration is allowed for this task.
+7. Upload a sample with `upload_sample` or `upload_samples`, or reuse the current session.
+8. Call `list_functions` and `list_custom_workflows`.
+9. Choose an existing workflow or create one with `save_custom_workflow`, then apply it with `select_custom_workflow`.
+10. Run it with `run_workflow`.
+11. Analyze `ai_output` first.
+12. If refined output is insufficient, call `get_raw_output_map` before `get_raw_output_by_id`, then fetch only the needed `raw_output_id`.
+13. Use `run_function` for one additional registered function result when needed.
+14. After analysis, produce the final AI summary according to the selected module's `final_result_schema` and save it with `save_session_result`.
+15. After the final summary is saved, ask whether to perform module code self-iteration if useful improvements were found.
+16. Iterate only selected-module files after the user approves iteration.
+
+When returned data is noisy, extract useful information first, then analyze it.
+
+## Modules
+
+Modules are user-extensible packages under `modules/<module_id>/`. A module may contain:
+
+- `functions/`: reusable function code declared in `module.json`.
+- `workflows/`: reusable workflow templates.
+- `knowledge/`: module knowledge assets.
+- `config_fields/`: user-configurable field declarations.
+- `skill/`: module `SKILL.md`, `playbook.json`, and optional `final_result_schema.json`.
+- `config_files/`: module-owned resources such as raw sorting rules and function data files.
+
+Use `get_module_template` to inspect the default module format. Use `create_module` to create a module in that default format.
+
+Module contents are intentionally editable only after user approval. Platform code is not self-iterated during sample analysis. Good generated code can be integrated into the owning module, weak function code can be improved, noisy raw sorting can be rewritten, and module skill/playbook/schema guidance can be tightened. The goal is to reduce token use, improve `ai_output`, and make future runs more effective.
+
+Put module configuration field definitions in `modules/<module_id>/config_fields/` and declare them in `module.json`. Put module resources in `modules/<module_id>/config_files/`. Put module final summary schema in `modules/<module_id>/skill/final_result_schema.json`. Do not put module-owned files in platform `config_files/`.
+
+Before writing any new file, inspect the target module directory and nearby files so the new file lands in the correct module location.
+
+## MCP Tool Reference
+
+| Tool | Role |
+| --- | --- |
+| `get_platform_skill` | Read this platform skill and the machine-readable platform playbook. |
+| `list_modules` | List available modules before choosing module context. |
+| `get_module_template` | Return the default module directory and manifest format. |
+| `get_module_skill` | Load only the selected module's skill, playbook, and final result schema. |
+| `get_module_detail` | Inspect one module's manifest, functions, workflows, config fields, and validation. |
+| `create_module` | Create a default-format module skeleton. |
+| `load_module` | Validate a module through the compatibility load endpoint. |
+| `package_module` | Package a module as an `.sfpmod.zip` archive. |
+| `export_module` | Export a module package. |
+| `import_module_archive` | Import a trusted local module archive. |
+| `list_module_knowledge` | List module knowledge assets without loading full contents. |
+| `upload_sample` | Upload one local sample and create a session. |
+| `upload_samples` | Upload multiple local samples and create sessions. |
+| `list_functions` | List all registered platform and module functions. |
+| `list_custom_workflows` | List saved platform and module workflow templates. |
+| `save_custom_workflow` | Save a new workflow template. |
+| `select_custom_workflow` | Apply a workflow template to a session. |
+| `run_workflow` | Run the selected workflow and return compact `ai_output`. |
+| `get_ai_output` | Fetch refined AI-facing session output. |
+| `get_ai_output_by_raw_id` | Fetch one refined output item by `raw_output_id`. |
+| `get_raw_output_map` | List raw output ids before fetching raw details. |
+| `get_raw_output_by_id` | Fetch one raw output item by id. |
+| `run_function` | Run one registered function in the current session. |
+| `get_mcp_file_access_policy` | Inspect allowed MCP file read/write scope. |
+| `inspect_allowed_files` | Inspect allowed platform or module files. |
+| `write_allowed_file` | Write allowed platform or module files. |
+| `save_session_result` | Save the final AI summary for the current session. |
+
+## Self-Iteration
+
+- Ask before analysis whether module code self-iteration is allowed.
+- Ask again after the final summary is saved before making any iteration edit.
+- Do not self-iterate platform code during sample analysis.
+- Only edit the selected module's files when the user approves.
+- If `ai_output` is noisy, improve the owning module's raw sorter in `modules/<module_id>/config_files/raw_sorting/`.
+- If a function is insufficient, improve or create code in `modules/<module_id>/functions/` and declare it in `module.json`.
+- If a function needs static resources, put them in `modules/<module_id>/config_files/<function_id>/`.
+- If a function needs user configuration, add field declarations under `modules/<module_id>/config_fields/` and declare them in `module.json`.
+- If module guidance is stale, update `modules/<module_id>/skill/SKILL.md`, `modules/<module_id>/skill/playbook.json`, or `modules/<module_id>/skill/final_result_schema.json`.
+- Add tests when generated code becomes a reusable module function.
+
+## Human Decision
+
+Ask the user before steps that are risky, ambiguous, expensive, require sample execution, require dependency installation, require external network/API use, require credentials, or may change the intended module boundary.
+
+## Safety
+
+- Do not execute uploaded samples.
+- Do not upload sample bytes to external services.
+- Do not read or print `config/local_config.json`.
+- Do not print API keys, Auth-Key credentials, tokens, passwords, or secrets.
+- Do not treat candidate evidence as confirmed behavior.
+- Do not write `observed_behaviors` automatically.
+- Prefer `ai_output`; use raw output only when evidence detail is needed.
+- Before raw detail, call `get_raw_output_map` and then query only the necessary `raw_output_id`.
+- Do not fetch all raw outputs at once unless the user explicitly asks.
+- Final results must be saved with `save_session_result`.
+
+## Final Result Shape
+
+Use the selected module's `final_result_schema` returned by `get_module_skill(module_id)`. Save the final AI summary with `save_session_result`; the platform stores it in `data/sessions/<session_id>/result/result.json`, and the frontend result page reads that session result.

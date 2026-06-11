@@ -1,0 +1,41 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Local runtime state and generated outputs
+uploads/
+reports/
+data/
+samples/
+exports/
+artifacts/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Local modules are managed separately from the platform repository
+modules/
+
+# Local-only agent and secret configuration
+.codex/
+.agents/
+.env
+.env.*
+config/local_config.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Module packages and local binary samples
+*.sfpmod
+*.sfpmod.zip
+*.apk
+*.exe
+*.dll
+*.sys
+*.so
+*.dylib
+*.bin

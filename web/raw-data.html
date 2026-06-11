@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>原始数据 - SecurityFunctionPlatform</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <h1>SecurityFunctionPlatform</h1>
+        <nav class="side-nav" aria-label="主导航">
+          <a href="/">分析工作台</a>
+          <a href="/modules.html">模块与流程</a>
+          <a href="/config.html">配置中心</a>
+          <a href="/platform.html">平台与模块</a>
+          <a class="active" href="/raw-data.html">原始数据</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header class="page-header">
+          <h2>原始数据查询</h2>
+          <p id="status-line" role="status">正在连接本地 API...</p>
+        </header>
+
+        <section>
+          <h3>查询条件</h3>
+          <div class="form-grid">
+            <label class="field">
+              <span>Session</span>
+              <select id="session-select"></select>
+            </label>
+            <label class="field">
+              <span>raw_output_id</span>
+              <select id="raw-output-select"></select>
+            </label>
+          </div>
+          <div class="inline-controls">
+            <button id="refresh-sessions-button" type="button">刷新 session</button>
+            <button id="load-raw-map-button" type="button">查询 raw output map</button>
+            <button id="load-raw-item-button" type="button">查询原始数据</button>
+            <button id="load-ai-output-button" type="button">查询 AI 输出</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>raw output map</h3>
+          <pre id="raw-map-output">{}</pre>
+        </section>
+
+        <section>
+          <h3>原始数据详情</h3>
+          <pre id="raw-detail-output">{}</pre>
+        </section>
+
+        <section>
+          <h3>AI 输出</h3>
+          <pre id="ai-output">{}</pre>
+        </section>
+      </main>
+    </div>
+    <script src="/static/common.js"></script>
+    <script src="/static/raw-data.js"></script>
+  </body>
+</html>

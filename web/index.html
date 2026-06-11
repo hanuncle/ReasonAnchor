@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>分析工作台 - SecurityFunctionPlatform</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <h1>SecurityFunctionPlatform</h1>
+        <nav class="side-nav" aria-label="主导航">
+          <a class="active" href="/">分析工作台</a>
+          <a href="/modules.html">模块与流程</a>
+          <a href="/config.html">配置中心</a>
+          <a href="/platform.html">平台与模块</a>
+          <a href="/raw-data.html">原始数据</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header class="page-header">
+          <h2>分析工作台</h2>
+          <p id="status-line" role="status">正在连接本地 API...</p>
+        </header>
+
+        <section>
+          <h3>样本上传</h3>
+          <label class="field">
+            <span>样本</span>
+            <input id="sample-file" type="file" multiple />
+          </label>
+          <button id="upload-button" type="button">上传样本</button>
+        </section>
+
+        <section>
+          <h3>Session 选择</h3>
+          <div class="inline-controls">
+            <select id="session-select"></select>
+            <button id="refresh-sessions-button" type="button">刷新</button>
+            <button id="load-session-button" type="button">加载</button>
+          </div>
+          <dl id="session-details" class="details"></dl>
+        </section>
+
+        <section>
+          <h3>流程选择</h3>
+          <div class="inline-controls">
+            <select id="workflow-select"></select>
+            <button id="apply-workflow-button" type="button">应用流程</button>
+            <button id="run-workflow-button" type="button">运行 workflow</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>当前 session 最终结果</h3>
+          <div class="inline-controls">
+            <button id="refresh-result-button" type="button">刷新结果</button>
+            <button id="open-result-button" type="button">打开结果页</button>
+            <button id="open-raw-button" type="button">查看原始数据</button>
+          </div>
+          <div id="final-result" class="final-result empty-state">请选择 session。</div>
+        </section>
+      </main>
+    </div>
+    <script src="/static/common.js"></script>
+    <script src="/static/analysis.js"></script>
+  </body>
+</html>

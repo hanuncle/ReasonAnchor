@@ -1,0 +1,27 @@
+{
+  "allowed_roots": [
+    "config_files",
+    "modules"
+  ],
+  "allowed_extensions": [
+    ".py",
+    ".json",
+    ".yar",
+    ".yara",
+    ".md",
+    ".txt",
+    ".ps1"
+  ],
+  "deny_patterns": [
+    "__pycache__",
+    ".pyc",
+    ".pyo",
+    ".env",
+    "local_config.json",
+    "data",
+    ".git",
+    ".venv"
+  ],
+  "max_read_bytes": 200000,
+  "max_write_bytes": 200000
+}

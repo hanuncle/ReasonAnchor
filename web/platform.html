@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>平台与模块 - SecurityFunctionPlatform</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <h1>SecurityFunctionPlatform</h1>
+        <nav class="side-nav" aria-label="主导航">
+          <a href="/">分析工作台</a>
+          <a href="/modules.html">模块与流程</a>
+          <a href="/config.html">配置中心</a>
+          <a class="active" href="/platform.html">平台与模块</a>
+          <a href="/raw-data.html">原始数据</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header class="page-header">
+          <h2>平台与模块说明</h2>
+          <p id="status-line" role="status">正在连接本地 API...</p>
+        </header>
+
+        <section>
+          <h3>平台</h3>
+          <dl class="details">
+            <dt>平台 Skill</dt>
+            <dd>config_files/codex_skill/SKILL.md</dd>
+            <dt>平台 Playbook</dt>
+            <dd>config_files/codex_skill/default_analysis_playbook.json</dd>
+          </dl>
+          <div id="mcp-tools-list" class="list-block"></div>
+        </section>
+
+        <section>
+          <h3>模块</h3>
+          <div id="module-detail-list" class="list-block empty-state">暂无模块。</div>
+        </section>
+      </main>
+    </div>
+    <script src="/static/common.js"></script>
+    <script src="/static/platform.js"></script>
+  </body>
+</html>

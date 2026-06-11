@@ -1,0 +1,635 @@
+{
+  "name": "security_function_platform_default_analysis_loop",
+  "description": "Concise platform-only loop for SecurityFunctionPlatform.",
+  "required_order": [
+    "read_platform_skill",
+    "list_modules",
+    "select_module",
+    "load_selected_module_skill",
+    "ask_initial_iteration_permission",
+    "ensure_session",
+    "inspect_functions",
+    "choose_or_create_workflow",
+    "run_workflow",
+    "analyze_ai_output",
+    "decide_next_step",
+    "save_final_result",
+    "ask_post_analysis_iteration_permission",
+    "iterate_selected_module_when_approved"
+  ],
+  "mcp_tools_by_step": {
+    "read_platform_skill": [
+      "get_platform_skill"
+    ],
+    "list_modules": [
+      "list_modules"
+    ],
+    "select_module": [
+      "list_modules"
+    ],
+    "load_selected_module_skill": [
+      "get_module_skill",
+      "get_module_detail",
+      "list_module_knowledge"
+    ],
+    "ask_initial_iteration_permission": [],
+    "create_module_when_needed": [
+      "get_module_template",
+      "create_module"
+    ],
+    "module_package_management": [
+      "load_module",
+      "package_module",
+      "export_module",
+      "import_module_archive"
+    ],
+    "ensure_session": [
+      "upload_sample",
+      "upload_samples"
+    ],
+    "inspect_functions": [
+      "list_functions"
+    ],
+    "choose_or_create_workflow": [
+      "list_custom_workflows",
+      "save_custom_workflow",
+      "select_custom_workflow"
+    ],
+    "run_workflow": [
+      "run_workflow"
+    ],
+    "analyze_ai_output": [
+      "get_ai_output",
+      "get_ai_output_by_raw_id"
+    ],
+    "inspect_raw_output_when_needed": [
+      "get_raw_output_map",
+      "get_raw_output_by_id"
+    ],
+    "iterate_selected_module_when_approved": [
+      "run_function",
+      "get_mcp_file_access_policy",
+      "inspect_allowed_files",
+      "write_allowed_file"
+    ],
+    "save_final_result": [
+      "save_session_result"
+    ]
+  },
+  "module_usage_policy": {
+    "default_sequence": [
+      "list_modules",
+      "ask_user_to_select_module",
+      "get_module_skill(module_id)"
+    ],
+    "module_template_tool": "get_module_template",
+    "module_creation_tool": "create_module",
+    "module_skill_loading": "Load only the selected module skill/playbook/final_result_schema to reduce token use.",
+    "module_final_result_schema": "Use get_module_skill(module_id).final_result_schema for the final AI summary format.",
+    "module_iteration_goal": "Move useful code and sorters into the owning module so future runs use fewer tokens and produce better ai_output."
+  },
+  "function_group_source": "Use get_module_skill(module_id).playbook for module-specific function groups.",
+  "safe_default_functions": [],
+  "optional_functions": [],
+  "external_functions": [],
+  "high_noise_functions": [],
+  "requires_config_functions": [],
+  "requires_prior_result": {},
+  "mcp_tool_reference": {
+    "get_platform_skill": {
+      "purpose": "Read the platform skill and playbook.",
+      "use_when": [
+        "Before using the platform for sample analysis."
+      ],
+      "inputs": [],
+      "returns": [
+        "skill",
+        "playbook",
+        "module_loading"
+      ],
+      "do_not_use_when": [
+        "Do not use it as sample evidence."
+      ]
+    },
+    "upload_sample": {
+      "purpose": "Upload one local sample and create a session.",
+      "use_when": [
+        "The user provides one local sample path and no session exists."
+      ],
+      "inputs": [
+        "file_path"
+      ],
+      "returns": [
+        "session_id",
+        "sample metadata"
+      ],
+      "do_not_use_when": [
+        "An existing session should be reused."
+      ]
+    },
+    "upload_samples": {
+      "purpose": "Upload multiple local samples and create sessions.",
+      "use_when": [
+        "The user provides multiple local sample paths."
+      ],
+      "inputs": [
+        "file_paths"
+      ],
+      "returns": [
+        "sessions",
+        "count"
+      ],
+      "do_not_use_when": [
+        "Only one sample is provided."
+      ]
+    },
+    "list_functions": {
+      "purpose": "List all registered platform and module functions.",
+      "use_when": [
+        "Before selecting workflow steps or deciding whether a function already exists."
+      ],
+      "inputs": [],
+      "returns": [
+        "function metadata"
+      ],
+      "do_not_use_when": [
+        "Do not treat the listing as execution output."
+      ]
+    },
+    "save_custom_workflow": {
+      "purpose": "Save a workflow template.",
+      "use_when": [
+        "Existing workflows are not suitable."
+      ],
+      "inputs": [
+        "name",
+        "workflow"
+      ],
+      "returns": [
+        "workflow_id"
+      ],
+      "do_not_use_when": [
+        "Use select_custom_workflow when applying an existing workflow."
+      ]
+    },
+    "list_custom_workflows": {
+      "purpose": "List saved platform and module workflows.",
+      "use_when": [
+        "Before creating a new workflow."
+      ],
+      "inputs": [],
+      "returns": [
+        "workflow summaries"
+      ],
+      "do_not_use_when": [
+        "Do not use it to run a workflow."
+      ]
+    },
+    "list_modules": {
+      "purpose": "List available modules.",
+      "use_when": [
+        "Before loading module skill or module-specific content."
+      ],
+      "inputs": [],
+      "returns": [
+        "module summaries"
+      ],
+      "do_not_use_when": [
+        "Do not treat module availability as authorization for risky work."
+      ]
+    },
+    "get_module_template": {
+      "purpose": "Return the default module directory and manifest format.",
+      "use_when": [
+        "Before creating a module or explaining the module layout."
+      ],
+      "inputs": [],
+      "returns": [
+        "template_version",
+        "directories",
+        "module_json",
+        "mutable_paths"
+      ],
+      "do_not_use_when": [
+        "Do not use it as evidence from a real module."
+      ]
+    },
+    "get_module_detail": {
+      "purpose": "Inspect one module manifest and validation summary.",
+      "use_when": [
+        "The selected module's functions, workflows, config fields, or validation status are needed."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "module detail",
+        "validation",
+        "declared functions",
+        "workflow summaries"
+      ],
+      "do_not_use_when": [
+        "Do not load every module detail unless the user asks."
+      ]
+    },
+    "get_module_skill": {
+      "purpose": "Load one selected module's skill, playbook, and final result schema.",
+      "use_when": [
+        "After list_modules and module selection."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "module skill",
+        "module playbook",
+        "final result schema",
+        "knowledge path summaries"
+      ],
+      "do_not_use_when": [
+        "Do not call it for every module by default."
+      ]
+    },
+    "create_module": {
+      "purpose": "Create a default-format module skeleton.",
+      "use_when": [
+        "The user wants a new reusable module."
+      ],
+      "inputs": [
+        "module_id",
+        "name",
+        "version",
+        "description",
+        "requirements"
+      ],
+      "returns": [
+        "created module summary"
+      ],
+      "do_not_use_when": [
+        "Module purpose or boundary is unclear."
+      ]
+    },
+    "load_module": {
+      "purpose": "Validate a module through the compatibility load endpoint.",
+      "use_when": [
+        "A module compatibility check is needed."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "module summary"
+      ],
+      "do_not_use_when": [
+        "The module requires unapproved risky actions."
+      ]
+    },
+    "package_module": {
+      "purpose": "Package a module as an archive.",
+      "use_when": [
+        "The user wants a shareable module package."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "archive",
+        "size",
+        "sha256"
+      ],
+      "do_not_use_when": [
+        "Runtime data, samples, or secrets would be included."
+      ]
+    },
+    "export_module": {
+      "purpose": "Export a module package.",
+      "use_when": [
+        "The user wants to export a module."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "archive",
+        "size",
+        "sha256"
+      ],
+      "do_not_use_when": [
+        "Runtime data, samples, or secrets would be included."
+      ]
+    },
+    "import_module_archive": {
+      "purpose": "Import a trusted local module archive.",
+      "use_when": [
+        "The user provides a trusted archive path."
+      ],
+      "inputs": [
+        "archive_path"
+      ],
+      "returns": [
+        "imported module summary"
+      ],
+      "do_not_use_when": [
+        "The archive is untrusted."
+      ]
+    },
+    "list_module_knowledge": {
+      "purpose": "List module knowledge assets.",
+      "use_when": [
+        "Knowledge asset availability is needed without loading full contents."
+      ],
+      "inputs": [],
+      "returns": [
+        "knowledge summaries"
+      ],
+      "do_not_use_when": [
+        "Do not use it as sample evidence."
+      ]
+    },
+    "select_custom_workflow": {
+      "purpose": "Apply a workflow to a session.",
+      "use_when": [
+        "A session and chosen workflow exist."
+      ],
+      "inputs": [
+        "session_id",
+        "workflow_id"
+      ],
+      "returns": [
+        "updated session"
+      ],
+      "do_not_use_when": [
+        "No session exists."
+      ]
+    },
+    "run_workflow": {
+      "purpose": "Run the selected workflow.",
+      "use_when": [
+        "A workflow has been applied to the session."
+      ],
+      "inputs": [
+        "session_id"
+      ],
+      "returns": [
+        "session_id",
+        "summary",
+        "ai_output"
+      ],
+      "do_not_use_when": [
+        "No workflow is selected."
+      ]
+    },
+    "get_ai_output": {
+      "purpose": "Fetch refined AI-facing output.",
+      "use_when": [
+        "The workflow has run and compact output is needed."
+      ],
+      "inputs": [
+        "session_id"
+      ],
+      "returns": [
+        "ai_output items"
+      ],
+      "do_not_use_when": [
+        "Full raw evidence is required."
+      ]
+    },
+    "get_ai_output_by_raw_id": {
+      "purpose": "Fetch one refined output item.",
+      "use_when": [
+        "Only one result needs review."
+      ],
+      "inputs": [
+        "session_id",
+        "raw_output_id"
+      ],
+      "returns": [
+        "ai_output item"
+      ],
+      "do_not_use_when": [
+        "A full overview is needed."
+      ]
+    },
+    "get_raw_output_map": {
+      "purpose": "List raw output ids and metadata.",
+      "use_when": [
+        "Before fetching raw output details."
+      ],
+      "inputs": [
+        "session_id"
+      ],
+      "returns": [
+        "raw output map"
+      ],
+      "do_not_use_when": [
+        "ai_output is enough."
+      ]
+    },
+    "get_raw_output_by_id": {
+      "purpose": "Fetch one raw output item.",
+      "use_when": [
+        "Specific raw evidence is needed after get_raw_output_map."
+      ],
+      "inputs": [
+        "session_id",
+        "raw_output_id"
+      ],
+      "returns": [
+        "raw output item"
+      ],
+      "do_not_use_when": [
+        "Do not fetch all raw outputs by default."
+      ]
+    },
+    "run_function": {
+      "purpose": "Run one registered function in a session.",
+      "use_when": [
+        "One additional function result is needed."
+      ],
+      "inputs": [
+        "session_id",
+        "function_id",
+        "params"
+      ],
+      "returns": [
+        "session_id",
+        "summary",
+        "ai_output_item"
+      ],
+      "do_not_use_when": [
+        "The function needs unapproved execution, network, dependency installation, or secrets."
+      ]
+    },
+    "get_mcp_file_access_policy": {
+      "purpose": "Show allowed MCP file scope.",
+      "use_when": [
+        "Before inspecting or writing platform/module files through MCP."
+      ],
+      "inputs": [],
+      "returns": [
+        "allowed roots",
+        "allowed extensions",
+        "deny patterns"
+      ],
+      "do_not_use_when": [
+        "No file iteration is needed."
+      ]
+    },
+    "inspect_allowed_files": {
+      "purpose": "Inspect allowed files or directories.",
+      "use_when": [
+        "Reviewing module functions, raw sorting, config fields, skills, or resources."
+      ],
+      "inputs": [
+        "path",
+        "include_content"
+      ],
+      "returns": [
+        "directory listing",
+        "file content"
+      ],
+      "do_not_use_when": [
+        "The path is denied or outside allowed scope."
+      ]
+    },
+    "write_allowed_file": {
+      "purpose": "Write allowed platform or module files.",
+      "use_when": [
+        "Integrating useful code, sorters, resources, config fields, or skill updates."
+      ],
+      "inputs": [
+        "path",
+        "content"
+      ],
+      "returns": [
+        "path",
+        "size",
+        "sha256"
+      ],
+      "do_not_use_when": [
+        "The target is outside scope, secret-bearing, or ambiguous."
+      ]
+    },
+    "save_session_result": {
+      "purpose": "Save the final AI summary to the session result file.",
+      "use_when": [
+        "Analysis is complete and the result has been formatted with the selected module final_result_schema."
+      ],
+      "inputs": [
+        "session_id",
+        "result"
+      ],
+      "returns": [
+        "saved session result"
+      ],
+      "do_not_use_when": [
+        "The content is only an intermediate observation."
+      ]
+    }
+  },
+  "decision_rules": [
+    {
+      "condition": "module not selected",
+      "action": "list_modules_then_ask_user_to_select_module"
+    },
+    {
+      "condition": "module selected",
+      "action": "call_get_module_skill_for_that_module_only"
+    },
+    {
+      "condition": "analysis work is about to start",
+      "action": "ask_whether_module_code_self_iteration_is_allowed_for_this_task"
+    },
+    {
+      "condition": "new module is needed",
+      "action": "call_get_module_template_then_create_module"
+    },
+    {
+      "condition": "ai_output contains enough evidence",
+      "action": "write_final_ai_summary_using_selected_module_final_result_schema_then_save_session_result"
+    },
+    {
+      "condition": "ai_output is too vague",
+      "action": "inspect_one_needed_raw_output_id"
+    },
+    {
+      "condition": "full raw output detail is needed",
+      "action": "call_get_raw_output_map_first_then_get_raw_output_by_id"
+    },
+    {
+      "condition": "returned data is noisy",
+      "action": "extract_useful_information_first_then_analyze"
+    },
+    {
+      "condition": "existing function can produce missing data",
+      "action": "run_function"
+    },
+    {
+      "condition": "function or sorter is weak but reusable",
+      "action": "after_final_summary_ask_user_then_improve_selected_module_only"
+    },
+    {
+      "condition": "a new file is needed",
+      "action": "inspect_target_directory_and_nearby_file_roles_before_writing"
+    },
+    {
+      "condition": "next step is risky, ambiguous, expensive, requires execution, requires network, requires dependency installation, or requires secrets",
+      "action": "ask_human_for_decision"
+    }
+  ],
+  "self_iteration_targets": {
+    "raw_sorting_functions": "modules/<module_id>/config_files/raw_sorting/",
+    "raw_sorting_index": "modules/<module_id>/config_files/raw_sorting/raw_sorting_index.json",
+    "module_feature_functions": "modules/<module_id>/functions/",
+    "function_resources": "modules/<module_id>/config_files/<function_id>/",
+    "module_config_fields": "modules/<module_id>/config_fields/",
+    "module_knowledge_assets": "modules/<module_id>/knowledge/",
+    "module_skill": "modules/<module_id>/skill/SKILL.md",
+    "module_skill_playbook": "modules/<module_id>/skill/playbook.json",
+    "module_final_result_schema": "modules/<module_id>/skill/final_result_schema.json"
+  },
+  "self_iteration_policy": {
+    "ask_before_analysis": true,
+    "ask_after_final_summary": true,
+    "allowed_only_after_user_approval": true,
+    "editable_scope": "selected_module_only",
+    "forbidden_scope": "platform_code",
+    "new_file_rule": "Inspect the target directory structure and nearby file roles before writing a new file."
+  },
+  "forbidden_targets": [
+    "config/local_config.json",
+    "data/sessions/",
+    ".git/",
+    ".venv/"
+  ],
+  "result_schema": {
+    "source": "get_module_skill(module_id).final_result_schema",
+    "save_with": "save_session_result",
+    "write_target": "data/sessions/<session_id>/result/result.json",
+    "fallback_required_fields": [
+      "session_id",
+      "file",
+      "summary",
+      "behaviors"
+    ]
+  },
+  "safety_rules": [
+    "Do not execute uploaded samples.",
+    "Do not upload sample bytes to external services.",
+    "Do not read or print config/local_config.json.",
+    "Do not print secrets or credentials.",
+    "Do not treat candidate evidence as confirmed behavior.",
+    "Do not write observed_behaviors automatically.",
+    "Use ai_output first.",
+    "Before querying full raw output, call get_raw_output_map first.",
+    "Query only the necessary raw_output_id.",
+    "Do not fetch all raw outputs at once unless the user explicitly asks.",
+    "When returned data is noisy, extract useful information first, then analyze it.",
+    "If ai_output is noisy, improve or create an owning-module raw sorter.",
+    "Ask before analysis whether module code self-iteration is allowed.",
+    "Ask again after the final summary is saved before making iteration edits.",
+    "Do not self-iterate platform code during sample analysis.",
+    "Only edit selected-module files after user approval.",
+    "Ask the human when the next step is risky, ambiguous, expensive, or requires secret/dependency/execution/network."
+  ]
+}
