@@ -75,27 +75,21 @@ http://127.0.0.1:8111/
 
 ### 4. 启动 MCP Server
 
-先启动 API，再运行：
-
-```powershell
-python -m security_function_platform.mcp_server.server
-```
-
-MCP 配置示例：
+先启动本地 API，然后在 Codex 的 `config.toml`，或其他 MCP 客户端的等价配置文件中写入下面的 MCP Server 配置：
 
 ```toml
 [mcp_servers.security-function-platform]
 command = "python"
 args = ["-m", "security_function_platform.mcp_server.server"]
-cwd = "<absolute-path-to-SecurityFunctionPlatform>"
-startup_timeout_sec = 10
+startup_timeout_sec = 30
 tool_timeout_sec = 120
+enabled = true
 
 [mcp_servers.security-function-platform.env]
 SECURITY_FUNCTION_PLATFORM_API_BASE = "http://127.0.0.1:8111"
 ```
 
-安装依赖和启动 MCP Server 要使用同一个 Python 解释器。如果启动时报 `RuntimeError: mcp package is not installed`，请在项目根目录执行 `python -m pip install -e ".[dev]"`，然后重新启动 MCP Server。
+写入配置后，重启 Codex，让 MCP Server 被重新加载。安装依赖和启动 MCP Server 要使用同一个 Python 解释器。如果启动时报 `RuntimeError: mcp package is not installed`，请在项目根目录执行 `python -m pip install -e ".[dev]"`，然后再次重启 Codex。
 
 ## Codex 调用 MCP 的实际使用方式
 

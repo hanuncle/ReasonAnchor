@@ -73,27 +73,21 @@ Useful pages:
 
 ### 4. Start The MCP Server
 
-Start the API first, then run:
-
-```powershell
-python -m security_function_platform.mcp_server.server
-```
-
-Example MCP config:
+Start the local API first. Then add this MCP server configuration to Codex's `config.toml`, or to the equivalent MCP client configuration file:
 
 ```toml
 [mcp_servers.security-function-platform]
 command = "python"
 args = ["-m", "security_function_platform.mcp_server.server"]
-cwd = "<absolute-path-to-SecurityFunctionPlatform>"
-startup_timeout_sec = 10
+startup_timeout_sec = 30
 tool_timeout_sec = 120
+enabled = true
 
 [mcp_servers.security-function-platform.env]
 SECURITY_FUNCTION_PLATFORM_API_BASE = "http://127.0.0.1:8111"
 ```
 
-Use the same Python interpreter for installation and MCP startup. If startup fails with `RuntimeError: mcp package is not installed`, run `python -m pip install -e ".[dev]"` in the project root, then start the MCP server again.
+After writing the configuration, restart Codex so the MCP server is loaded. Use the same Python interpreter for installation and MCP startup. If startup fails with `RuntimeError: mcp package is not installed`, run `python -m pip install -e ".[dev]"` in the project root, then restart Codex again.
 
 ## Codex MCP Usage In Practice
 
