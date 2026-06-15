@@ -20,6 +20,9 @@ dev = [
     "pytest",
 ]
 
+[tool.setuptools.packages.find]
+include = ["security_function_platform*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

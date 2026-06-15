@@ -82,10 +82,18 @@ function renderModules() {
   modules.forEach((moduleItem) => {
     const row = document.createElement("div");
     row.className = "module-row";
-    row.innerHTML = `
-      <span>${escapeHtml(moduleItem.module_id)} | ${escapeHtml(moduleItem.name || "")} | ${escapeHtml(moduleItem.version || "")}</span>
-      <span>${escapeHtml(moduleFlags(moduleItem).join(", ") || "local")}</span>
+    const info = document.createElement("span");
+    info.className = "module-info";
+    info.innerHTML = `
+      <strong>${escapeHtml(moduleItem.module_id)}</strong>
+      <span>${escapeHtml(moduleItem.name || "")} | ${escapeHtml(moduleItem.version || "")}</span>
     `;
+    const pageLinks = modulePageLinks(moduleItem);
+    if (pageLinks) {
+      info.append(pageLinks);
+    }
+    const flags = document.createElement("span");
+    flags.textContent = moduleFlags(moduleItem).join(", ") || "local";
     const packageButton = document.createElement("button");
     packageButton.type = "button";
     packageButton.textContent = "打包";
@@ -96,9 +104,27 @@ function renderModules() {
     exportButton.addEventListener("click", () => {
       window.location.href = `/api/modules/${encodeURIComponent(moduleItem.module_id)}/download`;
     });
-    row.append(packageButton, exportButton);
+    row.append(info, flags, packageButton, exportButton);
     moduleList.append(row);
   });
+}
+
+function modulePageLinks(moduleItem) {
+  const pages = Array.isArray(moduleItem.ui_pages) ? moduleItem.ui_pages : [];
+  if (!pages.length) {
+    return null;
+  }
+  const container = document.createElement("div");
+  container.className = "module-pages";
+  pages.forEach((page) => {
+    const link = document.createElement("a");
+    link.href = `/module-page.html?module=${encodeURIComponent(
+      moduleItem.module_id,
+    )}&page=${encodeURIComponent(page.page_id)}`;
+    link.textContent = page.title || page.page_id;
+    container.append(link);
+  });
+  return container;
 }
 
 async function packageModule(moduleId) {

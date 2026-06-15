@@ -18,6 +18,7 @@ if str(FUNCTIONS_DIR) not in sys.path:
 
 import vmware_dynamic  # noqa: E402
 from dynamic_vm_collect_sysmon import DynamicVmCollectSysmonFunction  # noqa: E402
+from dynamic_vm_preflight import DynamicVmPreflightFunction  # noqa: E402
 from dynamic_vm_run_sample import DynamicVmRunSampleFunction  # noqa: E402
 from dynamic_vm_upload_sample import DynamicVmUploadSampleFunction  # noqa: E402
 from vmware_dynamic import EXECUTE_CONFIRMATION  # noqa: E402
@@ -57,6 +58,37 @@ def test_vm_run_sample_requires_explicit_confirmation(tmp_path, monkeypatch) -> 
 
     assert result.status == "error"
     assert result.error["code"] == "execution_not_confirmed"
+    assert calls == []
+
+
+def test_vm_preflight_reports_missing_config_without_secrets() -> None:
+    result = DynamicVmPreflightFunction().run({"config": {"vmware": {}}}, {})
+
+    assert result.status == "success"
+    assert result.data["ready"] is False
+    assert "vmware.vmrun_path" in result.data["missing_config_fields"]
+    assert "vmware.guest_password" in result.data["missing_config_fields"]
+    assert "secret" not in str(result.data).lower()
+
+
+def test_vm_step_skips_when_preflight_is_not_ready(tmp_path, monkeypatch) -> None:
+    context = _context(tmp_path)
+    context["results"]["dynamic_vm_preflight"] = DynamicVmPreflightFunction().run(
+        {"config": {"vmware": {}}},
+        {},
+    ).to_dict()
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(vmware_dynamic.subprocess, "run", fake_run)
+
+    result = DynamicVmUploadSampleFunction().run(context, {})
+
+    assert result.status == "skipped"
+    assert result.data["skip_reason"] == "dynamic_vm_preflight_not_ready"
     assert calls == []
 
 

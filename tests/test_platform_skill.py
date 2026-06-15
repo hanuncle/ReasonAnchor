@@ -17,14 +17,23 @@ MCP_TOOL_NAMES = [
     "get_module_template",
     "get_module_detail",
     "get_module_skill",
+    "get_module_ui",
+    "get_module_knowledge",
     "create_module",
     "load_module",
     "package_module",
     "export_module",
     "import_module_archive",
     "list_module_knowledge",
+    "upsert_module_ui_page",
     "select_custom_workflow",
     "run_workflow",
+    "run_batch_workflow",
+    "submit_batch_workflow_job",
+    "list_batch_jobs",
+    "get_batch_job",
+    "list_sample_set_reports",
+    "get_sample_set_report",
     "get_ai_output",
     "get_ai_output_by_raw_id",
     "get_raw_output_map",
@@ -171,6 +180,12 @@ def test_playbook_function_groups_for_codex_orchestration() -> None:
         "Use get_module_skill(module_id).playbook for module-specific function groups."
     )
     assert playbook["module_usage_policy"]["module_template_tool"] == "get_module_template"
+    assert playbook["module_usage_policy"]["module_ui_tool"] == "get_module_ui"
+    assert playbook["module_usage_policy"]["module_knowledge_tool"] == "get_module_knowledge"
+    assert playbook["module_usage_policy"]["module_ui_page_upsert_tool"] == (
+        "upsert_module_ui_page"
+    )
+    assert "sample_set.report.v2" in playbook["module_usage_policy"]["cross_sample_report"]
     assert playbook["module_usage_policy"]["module_skill_loading"] == (
         "Load only the selected module skill/playbook/final_result_schema to reduce token use."
     )
@@ -191,12 +206,33 @@ def test_playbook_function_groups_for_codex_orchestration() -> None:
     assert "modules/reverse" not in json.dumps(playbook)
 
     assert "hash.compute" in reverse_playbook["safe_default_functions"]
+    assert reverse_playbook["safe_default_workflow"] == ""
+    assert "module:reverse:reverse_auto_download_static_dynamic_focused" in (
+        reverse_playbook["available_workflows"]
+    )
     assert "tool.floss_extract" in reverse_playbook["optional_functions"]
+    assert "ti.malwarebazaar.download_sample" in reverse_playbook["optional_functions"]
     assert "ti.virustotal.behaviour_summary" in reverse_playbook["external_functions"]
     assert "strings.extract" in reverse_playbook["high_noise_functions"]
     assert "tool.capa_analyze" in reverse_playbook["requires_config_functions"]
     assert reverse_playbook["requires_prior_result"]["ioc.extract"] == ["strings"]
     assert reverse_playbook["requires_prior_result"]["ti.virustotal.hash_lookup"] == ["hash"]
+    assert reverse_playbook["self_iteration_targets"]["behavior_taxonomy"] == (
+        "modules/reverse/knowledge/behavior_taxonomy.json"
+    )
+
+
+@requires_reverse_module
+def test_reverse_skill_declares_knowledge_enrichment_gate() -> None:
+    skill_text = Path("modules/reverse/skill/SKILL.md").read_text(encoding="utf-8")
+    enrichment = Path("modules/reverse/skill/KNOWLEDGE_ENRICHMENT_SKILL.md")
+
+    assert enrichment.is_file()
+    assert "KNOWLEDGE_ENRICHMENT_SKILL.md" in skill_text
+    assert "ask the user whether to enable it" in skill_text
+    assert "Do not automatically apply candidate updates." in enrichment.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_platform_skill_keeps_module_specific_guidance_out_of_platform_playbook() -> None:

@@ -48,7 +48,10 @@ def test_strings_enhanced_extracts_ascii_utf16_and_candidates(tmp_path) -> None:
         + "powershell -enc test".encode("utf-16le")
     )
 
-    result = StringsEnhancedExtractFunction().run({"sample_path": str(sample)}, {})
+    result = StringsEnhancedExtractFunction().run(
+        {"sample_path": str(sample)},
+        {"min_length": 3},
+    )
 
     assert result.status == "success"
     assert "http://example.com/a" in result.data["urls"]
@@ -56,6 +59,22 @@ def test_strings_enhanced_extracts_ascii_utf16_and_candidates(tmp_path) -> None:
     assert result.data["base64_candidates"][0]["decoded_size"] > 0
     assert result.data["suspicious_keywords"]["powershell"]
     assert "powershell -enc test" in result.data["utf16le_items"]
+
+
+def test_strings_enhanced_does_not_match_sam_inside_sample(tmp_path) -> None:
+    sample = tmp_path / "sample.bin"
+    sample.write_bytes("PE import test sample.\x00LSASS.exe\x00SAM\x00".encode("utf-16le"))
+
+    result = StringsEnhancedExtractFunction().run(
+        {"sample_path": str(sample)},
+        {"min_length": 3},
+    )
+
+    assert result.status == "success"
+    hits = result.data["suspicious_keywords"]["credential_access"]
+    assert "PE import test sample." not in hits
+    assert "LSASS.exe" in hits
+    assert "SAM" in hits
 
 
 def test_packer_detect_enhanced_flags_static_candidates(tmp_path) -> None:

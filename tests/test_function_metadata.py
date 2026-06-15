@@ -52,6 +52,14 @@ def test_threat_intelligence_functions_are_external_candidates() -> None:
         assert info["config_required"] is True
         assert "hash" in info["requires_results"]
 
+    download_info = registry.get("ti.malwarebazaar.download_sample").info()
+    assert download_info["network"] is True
+    assert download_info["external"] is True
+    assert download_info["candidate_only"] is True
+    assert download_info["requires_human_confirmation"] is True
+    assert download_info["config_required"] is True
+    assert download_info["requires_results"] == []
+
 
 def test_external_tool_functions_are_optional_high_cost() -> None:
     registry = main._current_registry()
@@ -77,6 +85,7 @@ def test_dynamic_vm_functions_are_external_and_configured() -> None:
     registry = main._current_registry()
 
     for function_id in [
+        "dynamic.vm_preflight",
         "dynamic.vm_status",
         "dynamic.vm_restore_snapshot",
         "dynamic.vm_upload_sample",

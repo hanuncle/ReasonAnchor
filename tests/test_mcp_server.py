@@ -11,14 +11,23 @@ EXPECTED_TOOLS = {
     "get_module_template",
     "get_module_detail",
     "get_module_skill",
+    "get_module_ui",
+    "get_module_knowledge",
     "create_module",
     "load_module",
     "package_module",
     "export_module",
     "import_module_archive",
     "list_module_knowledge",
+    "upsert_module_ui_page",
     "select_custom_workflow",
     "run_workflow",
+    "run_batch_workflow",
+    "submit_batch_workflow_job",
+    "list_batch_jobs",
+    "get_batch_job",
+    "list_sample_set_reports",
+    "get_sample_set_report",
     "get_raw_output_map",
     "get_raw_output_by_id",
     "get_ai_output",
@@ -48,6 +57,17 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
                 "summary": {"status": "completed"},
                 "ai_output_item": {"raw_output_id": "raw-002-hash"},
             }
+        if path == "/api/batches/run":
+            return {
+                "batch_id": "batch",
+                "items": [],
+                "report_id": "report",
+                "report": {"report_id": "report"},
+            }
+        if path == "/api/batches/jobs":
+            return {"job_id": "job", "status": "queued"}
+        if path == "/api/batches/jobs/job":
+            return {"job_id": "job", "status": "completed"}
         if path.endswith("/run"):
             return {
                 "session_id": "session",
@@ -81,16 +101,35 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
     assert server.get_module_template()["path"] == "/api/modules/template"
     assert server.get_module_detail("reverse")["path"] == "/api/modules/reverse"
     assert server.get_module_skill("reverse")["path"] == "/api/modules/reverse/skill"
+    assert server.get_module_ui("reverse")["path"] == "/api/modules/reverse/ui"
+    assert server.get_module_knowledge("reverse", "attack_techniques")["path"] == (
+        "/api/modules/reverse/knowledge/attack_techniques"
+    )
     assert server.create_module("demo", "Demo", "0.1.0", "desc", {})["path"] == "/api/modules"
     assert server.load_module("reverse")["path"] == "/api/modules/reverse/load"
     assert server.package_module("reverse")["path"] == "/api/modules/reverse/package"
     assert server.export_module("reverse")["path"] == "/api/modules/reverse/export"
     assert server.import_module_archive("demo.sfpmod.zip")["path"] == "/api/modules/import"
     assert server.list_module_knowledge()["path"] == "/api/modules/knowledge"
+    assert server.upsert_module_ui_page(
+        "reverse",
+        "attack_knowledge",
+        "ATT&CK Knowledge",
+        "knowledge_table",
+        "attack_techniques",
+        "ATT&CK mapped knowledge.",
+        ["technique_id", "name"],
+    )["path"] == "/api/modules/reverse/ui/pages/attack_knowledge"
     assert server.select_custom_workflow("session", "workflow")["path"] == (
         "/api/sessions/session/workflow-template"
     )
     assert server.run_workflow("session")["ai_output"]["items"][0]["raw_output_id"] == "raw-001-hash"
+    assert server.run_batch_workflow(["session"], "workflow")["report_id"] == "report"
+    assert server.submit_batch_workflow_job(["session"], "workflow")["job_id"] == "job"
+    assert server.list_batch_jobs()["job_id"] == "job"
+    assert server.get_batch_job("job")["status"] == "completed"
+    assert server.list_sample_set_reports()["path"] == "/api/reports"
+    assert server.get_sample_set_report("report")["path"] == "/api/reports/report"
     assert server.get_raw_output_map("session")["path"] == "/api/sessions/session/raw-output-map"
     assert server.get_raw_output_by_id("session", "raw-001-hash")["path"] == (
         "/api/sessions/session/raw-output/raw-001-hash"
@@ -114,6 +153,8 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
         ("GET", "/api/modules/template", None),
         ("GET", "/api/modules/reverse", None),
         ("GET", "/api/modules/reverse/skill", None),
+        ("GET", "/api/modules/reverse/ui", None),
+        ("GET", "/api/modules/reverse/knowledge/attack_techniques", None),
         (
             "POST",
             "/api/modules",
@@ -130,8 +171,41 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
         ("POST", "/api/modules/reverse/export", None),
         ("POST", "/api/modules/import", {"archive_path": "demo.sfpmod.zip"}),
         ("GET", "/api/modules/knowledge", None),
+        (
+            "PUT",
+            "/api/modules/reverse/ui/pages/attack_knowledge",
+            {
+                "title": "ATT&CK Knowledge",
+                "type": "knowledge_table",
+                "knowledge_type": "attack_techniques",
+                "description": "ATT&CK mapped knowledge.",
+                "columns": ["technique_id", "name"],
+            },
+        ),
         ("POST", "/api/sessions/session/workflow-template", {"workflow_id": "workflow"}),
         ("POST", "/api/sessions/session/run", None),
+        (
+            "POST",
+            "/api/batches/run",
+            {
+                "session_ids": ["session"],
+                "workflow_id": "workflow",
+                "create_report": True,
+            },
+        ),
+        (
+            "POST",
+            "/api/batches/jobs",
+            {
+                "session_ids": ["session"],
+                "workflow_id": "workflow",
+                "create_report": True,
+            },
+        ),
+        ("GET", "/api/batches/jobs", None),
+        ("GET", "/api/batches/jobs/job", None),
+        ("GET", "/api/reports", None),
+        ("GET", "/api/reports/report", None),
         ("GET", "/api/sessions/session/raw-output-map", None),
         ("GET", "/api/sessions/session/raw-output/raw-001-hash", None),
         ("GET", "/api/sessions/session/ai-output", None),

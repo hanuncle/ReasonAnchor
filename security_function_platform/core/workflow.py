@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -76,7 +77,32 @@ class WorkflowRunner:
 
         for index, step in enumerate(workflow.steps, start=1):
             result = registry.run(step.function_id, context, step.params)
-            context.setdefault("results", {})[result.result_key] = result.to_dict()
+            result_data = result.to_dict()
+            context.setdefault("results", {})[result.result_key] = result_data
+            _activate_sample_path(context, result_data)
             if on_step_result is not None:
                 on_step_result(index, result)
         return context
+
+
+def _activate_sample_path(context: dict[str, Any], result: dict[str, Any]) -> None:
+    if result.get("status") != "success":
+        return
+    data = result.get("data")
+    if not isinstance(data, dict) or data.get("activate_sample_path") is not True:
+        return
+    sample_path = str(data.get("sample_path") or "")
+    if not sample_path:
+        return
+    path = Path(sample_path)
+    if not path.is_file():
+        return
+    context["sample_path"] = str(path)
+    context["filename"] = str(data.get("filename") or path.name)
+    context["downloaded_sample"] = {
+        "provider": str(data.get("provider") or ""),
+        "sha256": str(data.get("sha256") or ""),
+        "sample_path": str(path),
+        "quarantine_dir": str(data.get("quarantine_dir") or ""),
+        "cleanup": data.get("cleanup", {}),
+    }

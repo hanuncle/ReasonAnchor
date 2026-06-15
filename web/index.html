@@ -54,6 +54,28 @@
         </section>
 
         <section>
+          <h3>Batch run</h3>
+          <div class="inline-controls">
+            <button id="select-batch-all-button" type="button">Select all</button>
+            <button id="clear-batch-selection-button" type="button">Clear</button>
+            <button id="run-batch-button" type="button">Run batch</button>
+          </div>
+          <div id="batch-job-status" class="job-status empty-state">No batch job running.</div>
+          <div id="batch-session-list" class="list-block empty-state">No sessions selected.</div>
+        </section>
+
+        <section>
+          <h3>Cross-sample report</h3>
+          <div class="inline-controls">
+            <button id="refresh-reports-button" type="button">Refresh reports</button>
+            <select id="report-select" aria-label="Sample-set report"></select>
+            <button id="load-report-button" type="button">Load report</button>
+          </div>
+          <div id="report-list" class="report-list empty-state">No sample-set reports.</div>
+          <div id="sample-set-report" class="final-result empty-state">No sample-set report.</div>
+        </section>
+
+        <section>
           <h3>当前 session 最终结果</h3>
           <div class="inline-controls">
             <button id="refresh-result-button" type="button">刷新结果</button>

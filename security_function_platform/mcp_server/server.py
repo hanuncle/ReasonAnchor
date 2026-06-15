@@ -114,6 +114,19 @@ def get_module_skill(module_id: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def get_module_ui(module_id: str) -> dict[str, Any]:
+    return _request_json("GET", f"/api/modules/{_quote(module_id)}/ui")
+
+
+@mcp.tool()
+def get_module_knowledge(module_id: str, knowledge_type: str) -> dict[str, Any]:
+    return _request_json(
+        "GET",
+        f"/api/modules/{_quote(module_id)}/knowledge/{_quote(knowledge_type)}",
+    )
+
+
+@mcp.tool()
 def create_module(
     module_id: str,
     name: str = "",
@@ -160,6 +173,29 @@ def list_module_knowledge() -> dict[str, Any]:
 
 
 @mcp.tool()
+def upsert_module_ui_page(
+    module_id: str,
+    page_id: str,
+    title: str = "",
+    page_type: str = "knowledge_table",
+    knowledge_type: str = "",
+    description: str = "",
+    columns: list[str] | None = None,
+) -> dict[str, Any]:
+    return _request_json(
+        "PUT",
+        f"/api/modules/{_quote(module_id)}/ui/pages/{_quote(page_id)}",
+        {
+            "title": title,
+            "type": page_type,
+            "knowledge_type": knowledge_type,
+            "description": description,
+            "columns": columns or [],
+        },
+    )
+
+
+@mcp.tool()
 def select_custom_workflow(session_id: str, workflow_id: str) -> dict[str, Any]:
     return _request_json(
         "POST",
@@ -176,6 +212,60 @@ def run_workflow(session_id: str) -> dict[str, Any]:
         "summary": response.get("summary", {}),
         "ai_output": response.get("ai_output", {"session_id": session_id, "items": []}),
     }
+
+
+@mcp.tool()
+def run_batch_workflow(
+    session_ids: list[str],
+    workflow_id: str = "",
+    create_report: bool = True,
+) -> dict[str, Any]:
+    return _request_json(
+        "POST",
+        "/api/batches/run",
+        {
+            "session_ids": session_ids,
+            "workflow_id": workflow_id,
+            "create_report": create_report,
+        },
+    )
+
+
+@mcp.tool()
+def submit_batch_workflow_job(
+    session_ids: list[str],
+    workflow_id: str = "",
+    create_report: bool = True,
+) -> dict[str, Any]:
+    return _request_json(
+        "POST",
+        "/api/batches/jobs",
+        {
+            "session_ids": session_ids,
+            "workflow_id": workflow_id,
+            "create_report": create_report,
+        },
+    )
+
+
+@mcp.tool()
+def list_batch_jobs() -> dict[str, Any]:
+    return _request_json("GET", "/api/batches/jobs")
+
+
+@mcp.tool()
+def get_batch_job(job_id: str) -> dict[str, Any]:
+    return _request_json("GET", f"/api/batches/jobs/{_quote(job_id)}")
+
+
+@mcp.tool()
+def list_sample_set_reports() -> dict[str, Any]:
+    return _request_json("GET", "/api/reports")
+
+
+@mcp.tool()
+def get_sample_set_report(report_id: str) -> dict[str, Any]:
+    return _request_json("GET", f"/api/reports/{_quote(report_id)}")
 
 
 @mcp.tool()
@@ -321,6 +411,9 @@ def get_platform_skill() -> dict[str, Any]:
             "module_detail_tool": "get_module_detail",
             "module_template_tool": "get_module_template",
             "create_module_tool": "create_module",
+            "module_ui_tool": "get_module_ui",
+            "module_knowledge_tool": "get_module_knowledge",
+            "module_ui_page_upsert_tool": "upsert_module_ui_page",
         },
     }
 

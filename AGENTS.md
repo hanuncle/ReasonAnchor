@@ -14,6 +14,8 @@ Default entry flow:
 6. Before raw detail, call `get_raw_output_map`, then fetch only the necessary `raw_output_id`.
 7. Save final structured results with `save_session_result`.
 
+For module-specific frontend pages, inspect declarations with `get_module_ui`, fetch only the needed declared knowledge asset with `get_module_knowledge`, and create or replace page declarations with `upsert_module_ui_page` only after the user approves module iteration. Module pages must use platform-owned renderers and must not rely on arbitrary module-owned frontend JavaScript.
+
 When returned data is noisy, extract useful information first, then analyze it.
 
 Do not read or print `config/local_config.json`.

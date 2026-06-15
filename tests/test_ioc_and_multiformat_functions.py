@@ -42,6 +42,18 @@ def test_ioc_extract_gets_iocs_and_keeps_stable_dedup() -> None:
     assert "sample.dll" in result.data["filtered_domains"]
 
 
+def test_ioc_extract_filters_code_artifacts_and_short_pseudo_domains() -> None:
+    result = IocExtractFunction().run(
+        strings_context(["b.symtab v.uh example.org real.example.com"]),
+        {},
+    )
+
+    assert result.status == "success"
+    assert result.data["domains"] == ["example.org", "real.example.com"]
+    assert "b.symtab" in result.data["filtered_domains"]
+    assert "v.uh" in result.data["filtered_domains"]
+
+
 def test_ioc_extract_missing_strings_returns_error() -> None:
     result = IocExtractFunction().run({"results": {}}, {})
 

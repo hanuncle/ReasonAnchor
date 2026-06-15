@@ -8,6 +8,22 @@ ValidationCompareStaticDynamicFunction = reverse_function_class(
     "validation_compare_static_dynamic.py",
     "ValidationCompareStaticDynamicFunction",
 )
+ValidationPlanFocusedDynamicFunction = reverse_function_class(
+    "validation_plan_focused_dynamic.py",
+    "ValidationPlanFocusedDynamicFunction",
+)
+ValidationCompareStaticDynamicFunctionLevelFunction = reverse_function_class(
+    "validation_compare_static_dynamic_function.py",
+    "ValidationCompareStaticDynamicFunctionLevelFunction",
+)
+ValidationPlanFocusedFunctionLevelFunction = reverse_function_class(
+    "validation_plan_focused_function_level.py",
+    "ValidationPlanFocusedFunctionLevelFunction",
+)
+FocusedFunctionLevelAnalysisFunction = reverse_function_class(
+    "focused_function_level_analysis.py",
+    "FocusedFunctionLevelAnalysisFunction",
+)
 
 
 def simulated_dynamic_telemetry():
@@ -104,11 +120,107 @@ def test_behavior_map_dynamic_can_read_context_result() -> None:
     assert result.data["source"] == "results.dynamic_telemetry"
 
 
+def test_behavior_map_dynamic_filters_environment_noise_when_sample_identity_known() -> None:
+    telemetry = {
+        "schema_version": "1",
+        "telemetry_id": "attribution-test",
+        "process_events": [
+            {
+                "event_id": "evt-001",
+                "event_type": "process_create",
+                "process_guid": "{sample}",
+                "pid": 100,
+                "process_name": "sample.exe",
+                "command_line": "C:\\Samples\\sample.exe",
+            },
+            {
+                "event_id": "evt-002",
+                "event_type": "process_create",
+                "process_guid": "{child}",
+                "parent_process_guid": "{sample}",
+                "pid": 101,
+                "parent_pid": 100,
+                "process_name": "cmd.exe",
+                "command_line": "cmd.exe /c whoami",
+            },
+            {
+                "event_id": "evt-003",
+                "event_type": "process_create",
+                "process_name": "powershell.exe",
+                "command_line": (
+                    "powershell.exe -File C:\\Tools\\Export-DynamicTelemetry.ps1 "
+                    "-OutFile C:\\Telemetry\\dynamic_telemetry.json"
+                ),
+            },
+            {
+                "event_id": "evt-004",
+                "event_type": "process_create",
+                "process_name": "cmd.exe",
+                "command_line": (
+                    "C:\\WINDOWS\\system32\\cmd.exe /c "
+                    "\"C:\\Program Files\\VMware\\VMware Tools\\poweron-vm-default.bat\""
+                ),
+            },
+        ],
+        "file_events": [
+            {
+                "event_id": "evt-005",
+                "event_type": "file_create",
+                "process_name": "powershell.exe",
+                "path": "C:\\Users\\user\\AppData\\Local\\Temp\\__PSScriptPolicyTest_x.psm1",
+            }
+        ],
+        "network_events": [
+            {
+                "event_id": "evt-006",
+                "event_type": "network_connect",
+                "process_guid": "{sample}",
+                "process_name": "sample.exe",
+                "destination_host": "example.test",
+            }
+        ],
+    }
+
+    result = BehaviorMapDynamicFunction().run(
+        {"filename": "sample.exe", "results": {}},
+        {"telemetry": telemetry},
+    )
+
+    assert result.status == "success"
+    categories = {item["category"] for item in result.data["behaviors"]}
+    assert "command_execution" in categories
+    assert "network_communication" in categories
+    assert "anti_analysis" not in categories
+    assert "file_write" not in categories
+    assert result.data["attribution"]["strict"] is True
+    assert result.data["counts"]["mapped_events"] == 3
+    assert result.data["counts"]["excluded_events"] == 3
+    assert result.data["attribution"]["counts"]["environment_noise"] == 3
+
+
 def test_behavior_map_dynamic_errors_when_telemetry_missing() -> None:
     result = BehaviorMapDynamicFunction().run({"results": {}}, {})
 
     assert result.status == "error"
     assert result.error["code"] == "missing_dynamic_telemetry"
+
+
+def test_behavior_map_dynamic_skips_when_telemetry_was_skipped() -> None:
+    result = BehaviorMapDynamicFunction().run(
+        {
+            "results": {
+                "dynamic_telemetry": {
+                    "status": "skipped",
+                    "data": {"skip_reason": "dynamic_vm_preflight_not_ready"},
+                }
+            }
+        },
+        {},
+    )
+
+    assert result.status == "skipped"
+    assert result.data["skip_reason"] == "dynamic_vm_preflight_not_ready"
+    assert result.data["counts"]["telemetry_events"] == 0
 
 
 def test_validation_compare_static_dynamic_compares_behavior_sets() -> None:
@@ -183,3 +295,134 @@ def test_validation_compare_static_dynamic_errors_when_inputs_missing() -> None:
 
     assert result.status == "error"
     assert result.error["code"] == "missing_static_behavior_map"
+
+
+def test_validation_compare_and_plan_skip_when_dynamic_map_skipped() -> None:
+    context = {
+        "results": {
+            "static_behavior_map": {
+                "status": "success",
+                "data": {"behaviors": [{"category": "network_communication"}]},
+            },
+            "dynamic_behavior_map": {
+                "status": "skipped",
+                "data": {"skip_reason": "dynamic_vm_preflight_not_ready"},
+            },
+        }
+    }
+
+    compare = ValidationCompareStaticDynamicFunction().run(context, {})
+    context["results"]["static_dynamic_validation"] = compare.to_dict()
+    plan = ValidationPlanFocusedDynamicFunction().run(context, {})
+
+    assert compare.status == "skipped"
+    assert compare.data["summary"]["static_candidates"] == 1
+    assert plan.status == "skipped"
+    assert plan.data["counts"]["targets"] == 0
+
+
+def test_static_dynamic_function_level_compare_and_plan_gaps() -> None:
+    context = {
+        "results": {
+            "static_behavior_map": {
+                "status": "success",
+                "data": {
+                    "behaviors": [
+                        {
+                            "category": "command_execution",
+                            "confidence": "high",
+                            "score": 6,
+                            "evidence": [{"value": "CreateProcessW"}],
+                            "related_functions": [
+                                {
+                                    "tool": "ida",
+                                    "name": "sub_140001000",
+                                    "address": "0x140001000",
+                                    "evidence": ["CreateProcessW"],
+                                }
+                            ],
+                        },
+                        {
+                            "category": "credential_access",
+                            "confidence": "low",
+                            "score": 1,
+                            "evidence": [{"value": "password"}],
+                        },
+                    ]
+                },
+            },
+            "dynamic_behavior_map": {
+                "status": "success",
+                "data": {
+                    "behaviors": [
+                        {"category": "command_execution", "confidence": "high", "score": 5}
+                    ]
+                },
+            },
+            "ida_function_features": {
+                "status": "success",
+                "data": {"functions": []},
+            },
+        }
+    }
+
+    compare = ValidationCompareStaticDynamicFunctionLevelFunction().run(context, {})
+    context["results"]["static_dynamic_function_validation"] = compare.to_dict()
+    plan = ValidationPlanFocusedFunctionLevelFunction().run(context, {})
+
+    assert compare.status == "success"
+    by_category = {item["category"]: item for item in compare.data["comparisons"]}
+    assert by_category["command_execution"]["gap"] == "covered"
+    assert by_category["credential_access"]["gap"] == (
+        "needs_focused_dynamic_and_function_level"
+    )
+    assert plan.status == "success"
+    assert plan.data["targets"][0]["behavior_category"] == "credential_access"
+
+
+def test_focused_function_level_analysis_reviews_recovered_features() -> None:
+    context = {
+        "results": {
+            "focused_function_level_plan": {
+                "status": "success",
+                "data": {
+                    "targets": [
+                        {
+                            "behavior_category": "command_execution",
+                            "gap": "needs_focused_function_level",
+                            "keywords": ["CreateProcess"],
+                            "static_evidence": [{"value": "CreateProcessW"}],
+                        }
+                    ]
+                },
+            },
+            "ida_function_features": {
+                "status": "success",
+                "data": {
+                    "functions": [
+                        {
+                            "name": "sub_140001000",
+                            "start": "0x140001000",
+                            "size": 40,
+                            "api_calls": ["CreateProcessW"],
+                            "strings": [],
+                            "candidate_behaviors": [
+                                {
+                                    "category": "command_execution",
+                                    "keywords": ["createprocess"],
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+        }
+    }
+
+    result = FocusedFunctionLevelAnalysisFunction().run(context, {})
+
+    assert result.status == "success"
+    assert result.data["summary"]["found"] == 1
+    target = result.data["targets"][0]
+    assert target["status"] == "found"
+    assert target["matching_functions"][0]["name"] == "sub_140001000"

@@ -57,6 +57,56 @@ def test_attack_map_static_requires_behavior_map() -> None:
     assert result.error["code"] == "missing_behavior_map"
 
 
+def test_behavior_map_static_does_not_match_sam_inside_sample() -> None:
+    context = {
+        "results": {
+            "strings": {
+                "status": "success",
+                "data": {"items": ["PE import test sample."], "urls": [], "ips": []},
+            },
+            "enhanced_strings": {
+                "status": "success",
+                "data": {
+                    "utf16le_items": ["PE import test sample."],
+                    "suspicious_keywords": {"credential_access": []},
+                },
+            },
+        }
+    }
+
+    result = BehaviorMapStaticFunction().run(context, {})
+
+    assert result.status == "success"
+    assert {
+        item["category"] for item in result.data["behaviors"]
+    }.isdisjoint({"credential_access"})
+
+
+def test_behavior_map_static_does_not_match_lsa_inside_tlsalloc() -> None:
+    context = {
+        "results": {
+            "pe_deep_parse": {
+                "status": "success",
+                "data": {
+                    "imports": [
+                        {
+                            "dll": "kernel32.dll",
+                            "functions": ["TlsAlloc"],
+                        }
+                    ]
+                },
+            }
+        }
+    }
+
+    result = BehaviorMapStaticFunction().run(context, {})
+
+    assert result.status == "success"
+    assert {
+        item["category"] for item in result.data["behaviors"]
+    }.isdisjoint({"credential_access"})
+
+
 def _static_context() -> dict:
     return {
         "results": {

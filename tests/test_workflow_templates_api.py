@@ -139,6 +139,40 @@ def test_workflow_template_unknown_function_returns_400(tmp_path, monkeypatch) -
     assert response.json()["detail"]["errors"][0]["code"] == "unknown_function"
 
 
+def test_workflow_template_reads_metadata_from_nested_workflow(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        main,
+        "workflow_store",
+        WorkflowStore(tmp_path / "data" / "workflows" / "workflows.json"),
+    )
+    client = TestClient(main.app)
+
+    response = client.post(
+        "/api/workflows",
+        json={
+            "name": "dynamic_nested_metadata",
+            "workflow": {
+                "name": "dynamic_nested_metadata",
+                "description": "Long VM workflow.",
+                "tags": ["dynamic", "vmware"],
+                "risk": "high",
+                "network": True,
+                "config_required": True,
+                "default_safe": False,
+                "steps": [{"function_id": "hash.compute", "params": {}}],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    saved = response.json()
+    assert saved["description"] == "Long VM workflow."
+    assert saved["tags"] == ["dynamic", "vmware"]
+    assert saved["risk"] == "high"
+    assert saved["network"] is True
+    assert saved["config_required"] is True
+
+
 def test_workflow_template_does_not_save_secret_keys(tmp_path) -> None:
     store = WorkflowStore(tmp_path / "data" / "workflows" / "workflows.json")
     workflow = WorkflowDefinition.from_dict(

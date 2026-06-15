@@ -1,3 +1,5 @@
+import hashlib
+
 from security_function_platform.core.function_base import AnalysisFunction
 from security_function_platform.core.function_registry import FunctionRegistry
 from security_function_platform.core.function_result import FunctionResult
@@ -26,6 +28,28 @@ class MarkerFunction(AnalysisFunction):
     def run(self, context, params):
         context["marker_executed"] = True
         return FunctionResult(function_id=self.id, result_key=self.result_key)
+
+
+class ActivateSampleFunction(AnalysisFunction):
+    id = "sample.activate"
+    name = "Activate Sample"
+    category = "test"
+    result_key = "sample_activation"
+
+    def run(self, context, params):
+        return FunctionResult(
+            function_id=self.id,
+            result_key=self.result_key,
+            data={
+                "activate_sample_path": True,
+                "provider": "test",
+                "sample_path": params["sample_path"],
+                "filename": "downloaded.exe",
+                "sha256": params.get("sha256", ""),
+                "quarantine_dir": params.get("quarantine_dir", ""),
+                "cleanup": {"delete_after_analysis": True},
+            },
+        )
 
 
 def build_registry() -> FunctionRegistry:
@@ -152,6 +176,38 @@ def test_workflow_runner_collects_results_without_function_writing_results(tmp_p
     WorkflowRunner().run(build_registry(), workflow, context)
 
     assert set(context["results"]) == {"hash"}
+
+
+def test_workflow_runner_activates_downloaded_sample_path(tmp_path) -> None:
+    original = tmp_path / "original.exe"
+    downloaded = tmp_path / "downloaded.exe"
+    original.write_bytes(b"original")
+    downloaded.write_bytes(b"downloaded sample")
+    expected_sha256 = hashlib.sha256(downloaded.read_bytes()).hexdigest()
+    registry = build_registry()
+    registry.register(ActivateSampleFunction())
+    workflow = WorkflowDefinition(
+        name="download_then_hash",
+        steps=[
+            WorkflowStep(
+                "sample.activate",
+                {"sample_path": str(downloaded), "sha256": expected_sha256},
+            ),
+            WorkflowStep("hash.compute"),
+        ],
+    )
+    context = {
+        "sample_path": str(original),
+        "filename": "original.exe",
+        "config": {},
+    }
+
+    WorkflowRunner().run(registry, workflow, context)
+
+    assert context["sample_path"] == str(downloaded)
+    assert context["filename"] == "downloaded.exe"
+    assert context["downloaded_sample"]["sha256"] == expected_sha256
+    assert context["results"]["hash"]["data"]["sha256"] == expected_sha256
 
 
 def test_workflow_runner_run_empty_steps_returns_context_without_error() -> None:

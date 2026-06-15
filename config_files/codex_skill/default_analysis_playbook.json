@@ -30,7 +30,9 @@
     "load_selected_module_skill": [
       "get_module_skill",
       "get_module_detail",
-      "list_module_knowledge"
+      "list_module_knowledge",
+      "get_module_ui",
+      "get_module_knowledge"
     ],
     "ask_initial_iteration_permission": [],
     "create_module_when_needed": [
@@ -56,11 +58,18 @@
       "select_custom_workflow"
     ],
     "run_workflow": [
-      "run_workflow"
+      "run_workflow",
+      "run_batch_workflow",
+      "submit_batch_workflow_job",
+      "get_batch_job"
     ],
     "analyze_ai_output": [
       "get_ai_output",
-      "get_ai_output_by_raw_id"
+      "get_ai_output_by_raw_id",
+      "list_batch_jobs",
+      "get_batch_job",
+      "list_sample_set_reports",
+      "get_sample_set_report"
     ],
     "inspect_raw_output_when_needed": [
       "get_raw_output_map",
@@ -68,6 +77,7 @@
     ],
     "iterate_selected_module_when_approved": [
       "run_function",
+      "upsert_module_ui_page",
       "get_mcp_file_access_policy",
       "inspect_allowed_files",
       "write_allowed_file"
@@ -86,7 +96,12 @@
     "module_creation_tool": "create_module",
     "module_skill_loading": "Load only the selected module skill/playbook/final_result_schema to reduce token use.",
     "module_final_result_schema": "Use get_module_skill(module_id).final_result_schema for the final AI summary format.",
-    "module_iteration_goal": "Move useful code and sorters into the owning module so future runs use fewer tokens and produce better ai_output."
+    "module_iteration_goal": "Move useful code and sorters into the owning module so future runs use fewer tokens and produce better ai_output.",
+    "module_ui_tool": "get_module_ui",
+    "module_knowledge_tool": "get_module_knowledge",
+    "module_ui_page_upsert_tool": "upsert_module_ui_page",
+    "module_ui_pages": "Declare module-owned pages in module.json.ui.pages and render them with platform-owned frontend components that read declared knowledge assets by knowledge_type. Create or replace one page declaration with upsert_module_ui_page only after module iteration is approved.",
+    "cross_sample_report": "Use sample_set.report.v2 fields sample_facts, behavior_matrix, attack_matrix, validation_status, and knowledge_links. Treat behavior_matrix as the primary answer to how many attack behavior classes were identified."
   },
   "function_group_source": "Use get_module_skill(module_id).playbook for module-specific function groups.",
   "safe_default_functions": [],
@@ -250,6 +265,42 @@
         "Do not call it for every module by default."
       ]
     },
+    "get_module_ui": {
+      "purpose": "Inspect one module's frontend page declarations.",
+      "use_when": [
+        "The user wants module-specific frontend pages or a page needs to link to module knowledge."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "ui pages",
+        "page ids",
+        "renderer types",
+        "knowledge types"
+      ],
+      "do_not_use_when": [
+        "Do not treat UI declarations as analysis evidence."
+      ]
+    },
+    "get_module_knowledge": {
+      "purpose": "Fetch one declared module knowledge asset by knowledge_type.",
+      "use_when": [
+        "A module page or analysis step needs one specific knowledge asset."
+      ],
+      "inputs": [
+        "module_id",
+        "knowledge_type"
+      ],
+      "returns": [
+        "knowledge path",
+        "items_count",
+        "data"
+      ],
+      "do_not_use_when": [
+        "Do not fetch unrelated knowledge assets by default."
+      ]
+    },
     "create_module": {
       "purpose": "Create a default-format module skeleton.",
       "use_when": [
@@ -346,6 +397,29 @@
         "Do not use it as sample evidence."
       ]
     },
+    "upsert_module_ui_page": {
+      "purpose": "Create or replace one module frontend page declaration using a platform-owned renderer.",
+      "use_when": [
+        "The user approved module iteration and the selected module needs a knowledge-backed frontend page."
+      ],
+      "inputs": [
+        "module_id",
+        "page_id",
+        "title",
+        "page_type",
+        "knowledge_type",
+        "description",
+        "columns"
+      ],
+      "returns": [
+        "updated module UI",
+        "page"
+      ],
+      "do_not_use_when": [
+        "The knowledge_type is not declared in module.json.knowledge.",
+        "The page would require arbitrary module-owned frontend JavaScript."
+      ]
+    },
     "select_custom_workflow": {
       "purpose": "Apply a workflow to a session.",
       "use_when": [
@@ -377,6 +451,121 @@
       ],
       "do_not_use_when": [
         "No workflow is selected."
+      ]
+    },
+    "run_batch_workflow": {
+      "purpose": "Run one workflow across multiple sessions and save a cross-sample report.",
+      "use_when": [
+        "The user provides or selects multiple sessions for the same workflow and the workflow is expected to finish within the current tool call."
+      ],
+      "inputs": [
+        "session_ids",
+        "workflow_id",
+        "create_report"
+      ],
+      "returns": [
+        "batch_id",
+        "items",
+        "report_id",
+        "report",
+        "report.sample_facts",
+        "report.behavior_matrix",
+        "report.attack_matrix",
+        "report.validation_status",
+        "report.knowledge_links"
+      ],
+      "do_not_use_when": [
+        "Only one session should be run.",
+        "Use submit_batch_workflow_job for long-running VM dynamic analysis or workflows likely to exceed MCP tool timeouts.",
+        "The workflow includes risky execution that the user has not approved for every selected session."
+      ]
+    },
+    "submit_batch_workflow_job": {
+      "purpose": "Submit one workflow across multiple sessions as a persisted asynchronous batch job.",
+      "use_when": [
+        "The batch may take longer than an MCP tool timeout.",
+        "The workflow includes VM dynamic analysis or other long-running per-sample steps."
+      ],
+      "inputs": [
+        "session_ids",
+        "workflow_id",
+        "create_report"
+      ],
+      "returns": [
+        "job_id",
+        "status",
+        "items",
+        "completed_count",
+        "failed_count",
+        "report_id"
+      ],
+      "do_not_use_when": [
+        "The user has not approved risky execution for every selected session.",
+        "Only one quick session should be run."
+      ]
+    },
+    "list_batch_jobs": {
+      "purpose": "List persisted asynchronous batch jobs.",
+      "use_when": [
+        "A previous long-running batch job needs to be located."
+      ],
+      "inputs": [],
+      "returns": [
+        "jobs",
+        "count"
+      ],
+      "do_not_use_when": [
+        "A specific current session result is needed."
+      ]
+    },
+    "get_batch_job": {
+      "purpose": "Fetch one asynchronous batch job, including progress and report id.",
+      "use_when": [
+        "The job_id is known and batch progress or completion status is needed."
+      ],
+      "inputs": [
+        "job_id"
+      ],
+      "returns": [
+        "job_id",
+        "status",
+        "items",
+        "completed_count",
+        "failed_count",
+        "report_id",
+        "report"
+      ],
+      "do_not_use_when": [
+        "Use get_sample_set_report when only the completed report content is needed."
+      ]
+    },
+    "list_sample_set_reports": {
+      "purpose": "List saved cross-sample reports.",
+      "use_when": [
+        "A previous batch report needs to be located."
+      ],
+      "inputs": [],
+      "returns": [
+        "reports",
+        "count"
+      ],
+      "do_not_use_when": [
+        "A specific current session result is needed."
+      ]
+    },
+    "get_sample_set_report": {
+      "purpose": "Fetch one saved cross-sample report.",
+      "use_when": [
+        "The report_id is known and cross-sample findings are needed."
+      ],
+      "inputs": [
+        "report_id"
+      ],
+      "returns": [
+        "sample-set report"
+      ],
+      "do_not_use_when": [
+        "Use get_session_result or save_session_result for one session."
       ]
     },
     "get_ai_output": {
@@ -543,6 +732,10 @@
     {
       "condition": "new module is needed",
       "action": "call_get_module_template_then_create_module"
+    },
+    {
+      "condition": "module-specific frontend page is needed",
+      "action": "inspect_get_module_ui_and_get_module_knowledge_then_call_upsert_module_ui_page_after_user_approval"
     },
     {
       "condition": "ai_output contains enough evidence",

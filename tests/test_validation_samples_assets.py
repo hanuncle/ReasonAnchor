@@ -66,6 +66,26 @@ def test_attack_knowledge_and_scenarios_reference_known_validation_samples() -> 
 
 
 @requires_reverse_module
+def test_behavior_taxonomy_covers_attack_scenarios_and_validation_samples() -> None:
+    taxonomy = load_json("knowledge/behavior_taxonomy.json")
+    attack = load_json("knowledge/attack/techniques.json")
+    scenarios = load_json("config_files/validation/validation_scenarios.json")
+    manifest = load_json("config_files/validation_samples/samples_manifest.json")
+
+    category_ids = {item["id"] for item in taxonomy["categories"]}
+    assert "command_execution" in category_ids
+    assert "process_injection" in category_ids
+    assert "scheduled_task" in category_ids
+
+    for technique in attack["techniques"]:
+        assert set(technique.get("behavior_categories", [])) <= category_ids
+    for scenario in scenarios["scenarios"]:
+        assert scenario["behavior_category"] in category_ids
+    for sample in manifest["samples"]:
+        assert sample["behavior_category"] in category_ids
+
+
+@requires_reverse_module
 def test_reverse_module_package_includes_validation_sample_scripts(tmp_path) -> None:
     store = ModuleStore(
         "modules",
@@ -80,5 +100,25 @@ def test_reverse_module_package_includes_validation_sample_scripts(tmp_path) -> 
         names = set(archive.namelist())
 
     assert "reverse/config_files/validation_samples/samples_manifest.json" in names
+    assert "reverse/knowledge/behavior_taxonomy.json" in names
+    assert "reverse/knowledge/attack/techniques.json" in names
+    assert "reverse/skill/KNOWLEDGE_ENRICHMENT_SKILL.md" in names
     assert "reverse/config_files/validation_samples/command_execution_fixture.ps1" in names
     assert "reverse/config_files/validation_samples/registry_run_key_fixture.ps1" in names
+
+
+@requires_reverse_module
+def test_reverse_module_declares_knowledge_ui_pages() -> None:
+    manifest = json.loads((REVERSE_ROOT / "module.json").read_text(encoding="utf-8"))
+
+    pages = manifest["ui"]["pages"]
+    page_ids = {page["page_id"] for page in pages}
+    knowledge_types = {
+        item["type"]
+        for item in manifest["knowledge"]
+    }
+
+    assert {"attack_knowledge", "behavior_taxonomy", "validation_samples"} <= page_ids
+    for page in pages:
+        assert page["knowledge_type"] in knowledge_types
+        assert page["type"] in {"knowledge_table", "taxonomy_browser"}

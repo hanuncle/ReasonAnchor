@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 
 from fastapi.testclient import TestClient
 
@@ -94,6 +95,130 @@ def test_upload_multiple_samples_creates_one_session_per_file(tmp_path, monkeypa
     assert body["sessions"][0]["session_id"] != body["sessions"][1]["session_id"]
     for session in body["sessions"]:
         assert Path(session["sample"]["stored_path"]).is_file()
+
+
+def test_batch_run_creates_cross_sample_report_file(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(main, "store", SessionStore(tmp_path / "data" / "sessions"))
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/sessions/upload-multiple",
+        files=[
+            ("files", ("one.bin", b"powershell http://one.example/a")),
+            ("files", ("two.bin", b"cmd.exe http://two.example/b")),
+        ],
+    ).json()
+    workflow = {
+        "name": "batch_static",
+        "steps": [
+            {"function_id": "hash.compute", "params": {}},
+            {"function_id": "strings.extract", "params": {"min_length": 4}},
+            {"function_id": "ioc.extract", "params": {}},
+            {"function_id": "behavior.map_static", "params": {}},
+            {"function_id": "attack.map_static", "params": {}},
+        ],
+    }
+    for session in upload["sessions"]:
+        response = client.post(
+            f"/api/sessions/{session['session_id']}/workflow",
+            json=workflow,
+        )
+        assert response.status_code == 200
+
+    response = client.post(
+        "/api/batches/run",
+        json={"session_ids": [session["session_id"] for session in upload["sessions"]]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["count"] == 2
+    assert body["report"]["schema_id"] == "sample_set.report.v2"
+    assert body["report"]["summary"]["completed"] == 2
+    assert body["report"]["summary"]["behavior_category_count"] >= 2
+    assert body["report"]["summary"]["attack_technique_count"] >= 2
+    assert body["report"]["summary"]["validation_status"]["static_only"] == 2
+    assert {"command_execution", "network_communication"} <= set(
+        body["report"]["summary"]["behavior_categories"]
+    )
+    assert {"behavior_taxonomy", "attack_knowledge", "validation_samples"} <= set(
+        body["report"]["knowledge_links"]
+    )
+    assert {
+        "command_execution",
+        "network_communication",
+    } <= {item["category_id"] for item in body["report"]["behavior_matrix"]}
+    assert {"T1059", "T1071"} <= {
+        item["technique_id"] for item in body["report"]["attack_matrix"]
+    }
+    assert len(body["report"]["sample_facts"]) == 2
+    report_path = tmp_path / "data" / "reports" / body["report_id"] / "report.json"
+    markdown_path = tmp_path / "data" / "reports" / body["report_id"] / "report.md"
+    assert report_path.is_file()
+    assert markdown_path.is_file()
+    assert "Behavior Matrix" in markdown_path.read_text(encoding="utf-8")
+
+    list_response = client.get("/api/reports")
+    get_response = client.get(f"/api/reports/{body['report_id']}")
+    assert list_response.status_code == 200
+    assert list_response.json()["reports"][0]["report_id"] == body["report_id"]
+    assert list_response.json()["reports"][0]["behavior_category_count"] >= 2
+    assert get_response.status_code == 200
+    assert get_response.json()["report_id"] == body["report_id"]
+    assert get_response.json()["artifacts"]["markdown"] == "report.md"
+
+
+def test_async_batch_job_runs_and_persists_status(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(main, "store", SessionStore(tmp_path / "data" / "sessions"))
+    client = TestClient(main.app)
+    upload = client.post(
+        "/api/sessions/upload-multiple",
+        files=[
+            ("files", ("one.bin", b"powershell http://one.example/a")),
+            ("files", ("two.bin", b"cmd.exe http://two.example/b")),
+        ],
+    ).json()
+    workflow = {
+        "name": "async_batch_static",
+        "steps": [
+            {"function_id": "hash.compute", "params": {}},
+            {"function_id": "strings.extract", "params": {"min_length": 4}},
+            {"function_id": "behavior.map_static", "params": {}},
+        ],
+    }
+    for session in upload["sessions"]:
+        response = client.post(
+            f"/api/sessions/{session['session_id']}/workflow",
+            json=workflow,
+        )
+        assert response.status_code == 200
+
+    response = client.post(
+        "/api/batches/jobs",
+        json={"session_ids": [session["session_id"] for session in upload["sessions"]]},
+    )
+
+    assert response.status_code == 200
+    job = response.json()
+    assert job["status"] in {"queued", "running", "completed"}
+    job_id = job["job_id"]
+    for _ in range(40):
+        job_response = client.get(f"/api/batches/jobs/{job_id}")
+        assert job_response.status_code == 200
+        job = job_response.json()
+        if job["status"] == "completed":
+            break
+        time.sleep(0.05)
+
+    assert job["status"] == "completed"
+    assert job["completed_count"] == 2
+    assert job["failed_count"] == 0
+    assert job["report_id"]
+    assert job["report"]["summary"]["sample_count"] == 2
+    assert (tmp_path / "data" / "batch_jobs" / job_id / "job.json").is_file()
+
+    list_response = client.get("/api/batches/jobs")
+    assert list_response.status_code == 200
+    assert list_response.json()["jobs"][0]["job_id"] == job_id
 
 
 def test_list_sessions_returns_existing_session_summaries(tmp_path, monkeypatch) -> None:

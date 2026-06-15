@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType
 from typing import TypeVar
@@ -26,6 +27,8 @@ def reverse_function_module(filename: str) -> ModuleType:
     if spec is None or spec.loader is None:
         raise AssertionError(f"Could not load reverse function module: {filename}")
     module = importlib.util.module_from_spec(spec)
+    if str(REVERSE_FUNCTION_DIR) not in sys.path:
+        sys.path.insert(0, str(REVERSE_FUNCTION_DIR))
     spec.loader.exec_module(module)
     return module
 

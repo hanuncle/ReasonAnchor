@@ -33,6 +33,7 @@ Core goals:
 - **Skill management**: load platform Skill first, then load only the selected module Skill/playbook/schema.
 - **Token reduction**: avoid giving the AI every module's context; use `list_modules` then `get_module_skill(module_id)`.
 - **Controlled code iteration**: after user approval, useful code, raw sorters, schemas, and knowledge can be written back into the selected module.
+- **Module-owned frontend pages**: modules can declare knowledge-backed pages in `module.json.ui.pages`, while rendering stays inside platform-owned frontend components.
 - **Result persistence**: raw outputs, AI-facing outputs, and final summaries are saved under the current session.
 
 ## Install And Run
@@ -66,6 +67,7 @@ Useful pages:
 
 - `http://127.0.0.1:8111/`: analysis workbench for sample upload, session selection, workflow selection, workflow runs, and current-session final results.
 - `http://127.0.0.1:8111/modules.html`: module import/export/package and workflow template management.
+- `http://127.0.0.1:8111/module-page.html?module=<module_id>&page=<page_id>`: module-specific knowledge page rendered from `module.json.ui.pages`.
 - `http://127.0.0.1:8111/config.html`: local configuration fields.
 - `http://127.0.0.1:8111/platform.html`: platform Skill paths, MCP tool roles, and module Skill/function paths.
 - `http://127.0.0.1:8111/raw-data.html`: map-first raw output and AI output lookup.
@@ -115,6 +117,8 @@ Codex can reuse existing modules or create a new module:
 - Use `get_module_template` to inspect the default module layout.
 - Use `create_module` to create a new module in the default format.
 - Use `get_module_detail(module_id)` to inspect functions, workflows, config fields, and validation state.
+- Use `get_module_ui(module_id)` to inspect module-specific frontend page declarations.
+- Use `get_module_knowledge(module_id, knowledge_type)` to fetch one declared knowledge asset for a module page.
 
 Modules carry specific capabilities, such as an analysis domain, tool wrapper, report format, or knowledge asset. Platform Skill should not hardcode module contents; Codex should discover modules first, then load the selected module context.
 
@@ -178,6 +182,8 @@ Use:
 - `get_module_detail(module_id)`: inspect one module's manifest, functions, workflows, config fields, and validation state.
 - `get_module_skill(module_id)`: load the selected module's `SKILL.md`, `playbook.json`, and `final_result_schema.json`.
 - `list_module_knowledge`: list module knowledge assets without loading all contents.
+- `get_module_ui(module_id)`: inspect one module's frontend page declarations.
+- `get_module_knowledge(module_id, knowledge_type)`: fetch one declared module knowledge asset.
 
 Modules are usable by discovery. The compatibility load endpoint still exists for validation.
 
@@ -209,10 +215,23 @@ Important rules:
 - Declare every reusable function in `module.json`.
 - Put module config field declarations in `config_fields/`.
 - Put module resources in `config_files/`.
+- Put module knowledge assets in `knowledge/` and declare reusable module pages in `module.json.ui.pages`.
 - Put module Skill/playbook/final result schema in `skill/`.
 - Before writing a new file, inspect the module directory and nearby file roles.
 
-### 4. Module Import, Export, And Packaging
+### 4. Module Frontend Pages
+
+Module pages are declarative. A module declares pages in `module.json.ui.pages`, each page points at an already declared `knowledge_type`, and the platform renders the page with trusted renderers such as `knowledge_table` or `taxonomy_browser`.
+
+Use:
+
+- `get_module_ui(module_id)`: inspect existing page declarations.
+- `get_module_knowledge(module_id, knowledge_type)`: inspect the exact knowledge asset a page will render.
+- `upsert_module_ui_page(...)`: create or replace one page declaration after the user approves module iteration.
+
+Do not ship arbitrary module-owned frontend JavaScript for trusted rendering. Add a new platform renderer in `web/module-page.js` only when a new reusable page type is genuinely needed.
+
+### 5. Module Import, Export, And Packaging
 
 Use:
 
@@ -223,7 +242,7 @@ Use:
 
 Packaging excludes runtime data, session files, secrets, virtual environments, and denied paths.
 
-### 5. Function And Workflow Execution
+### 6. Function And Workflow Execution
 
 Use:
 
@@ -232,11 +251,18 @@ Use:
 - `save_custom_workflow`: save a new workflow template.
 - `select_custom_workflow`: apply a workflow template to a session.
 - `run_workflow`: run the workflow and return compact `ai_output`.
+- `run_batch_workflow`: run a short workflow synchronously across multiple sessions and save a sample-set report.
+- `submit_batch_workflow_job`: submit a long-running batch workflow as a persisted background job.
+- `list_batch_jobs` / `get_batch_job`: inspect queued, running, completed, or failed batch jobs.
+- `list_sample_set_reports` / `get_sample_set_report`: inspect saved cross-sample reports.
 - `run_function`: run one additional function in the current session.
 
 Workflow templates support metadata such as risk, network use, config requirements, tags, and default-safe status.
+Use `submit_batch_workflow_job` for VMware dynamic workflows or other long-running analysis, even for a single session, so the run can be polled and recovered if the client times out.
 
-### 6. Session Output Model
+The reverse module also exposes `ti.malwarebazaar.download_sample` as a controlled sample-source function. It requires explicit confirmation, downloads into local quarantine, verifies SHA256 before returning a path, and should be followed by upload/analysis cleanup.
+
+### 7. Session Output Model
 
 The platform stores three layers of output:
 
@@ -252,7 +278,16 @@ AI agents should analyze `ai_output` first. If raw evidence is needed:
 
 Do not fetch all raw outputs by default.
 
-### 7. Final Result Schema
+### 8. Cross-Sample Reports
+
+Batch runs save a taxonomy-driven cross-sample report under `data/reports/<report_id>/`:
+
+- `report.json`: structured report for the frontend and MCP tools.
+- `report.md`: human-readable delivery draft.
+
+`sample_set.report.v2` uses `sample_facts`, `behavior_matrix`, `attack_matrix`, `validation_status`, and `knowledge_links`. Use `behavior_matrix` as the primary source for how many attack behavior classes were identified, which samples hit each behavior, and which ATT&CK techniques are linked to those behaviors.
+
+### 9. Final Result Schema
 
 Each module can define its own final summary shape in:
 
@@ -272,7 +307,7 @@ The frontend result page reads the saved session result from:
 /api/sessions/<session_id>/result
 ```
 
-### 8. Local Configuration
+### 10. Local Configuration
 
 Real local values live in:
 
@@ -290,7 +325,7 @@ modules/<module_id>/config_fields/
 
 The web UI Local Config area can save or delete mapped values. Secret values are redacted by the API and are not copied into session, workflow, raw output, AI output, or result JSON.
 
-### 9. Raw Sorting
+### 11. Raw Sorting
 
 Raw sorting turns noisy function output into compact `ai_output`.
 
@@ -308,7 +343,7 @@ modules/<module_id>/config_files/raw_sorting/raw_sorting_index.json
 
 If output is noisy, improve or add the owning module's raw sorter instead of repeatedly querying full raw output.
 
-### 10. Controlled Code Iteration
+### 12. Controlled Code Iteration
 
 Code iteration is allowed only after user approval.
 
@@ -321,6 +356,7 @@ Required flow:
 
 Allowed module iteration targets:
 
+- `modules/<module_id>/module.json` for declarative `ui.pages` updates through `upsert_module_ui_page`
 - `modules/<module_id>/functions/`
 - `modules/<module_id>/config_files/`
 - `modules/<module_id>/config_fields/`
@@ -341,10 +377,13 @@ Platform and module context:
 - `get_module_skill`
 - `get_module_detail`
 - `list_module_knowledge`
+- `get_module_ui`
+- `get_module_knowledge`
 
 Module lifecycle:
 
 - `create_module`
+- `upsert_module_ui_page`
 - `load_module`
 - `package_module`
 - `export_module`
@@ -360,6 +399,12 @@ Sessions and workflows:
 - `select_custom_workflow`
 - `run_workflow`
 - `run_function`
+- `run_batch_workflow`
+- `submit_batch_workflow_job`
+- `list_batch_jobs`
+- `get_batch_job`
+- `list_sample_set_reports`
+- `get_sample_set_report`
 
 Output and result access:
 

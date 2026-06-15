@@ -18,6 +18,8 @@ _VERIFICATION_VALUES = {"已验证", "未验证", "verified", "unverified"}
 class SessionStore:
     def __init__(self, base_dir: str | Path = "data/sessions") -> None:
         self.base_dir = Path(base_dir)
+        self.reports_dir = self.base_dir.parent / "reports"
+        self.batch_jobs_dir = self.base_dir.parent / "batch_jobs"
 
     def create_session_from_upload(self, filename: str, content: bytes) -> dict[str, Any]:
         session_id = str(uuid.uuid4())
@@ -190,6 +192,169 @@ class SessionStore:
             return self._default_result(session_id)
         return self._normalize_result(session_id, data)
 
+    def save_sample_set_report(self, report: dict[str, Any]) -> dict[str, Any]:
+        saved_report = self._sanitize_result(dict(report))
+        markdown = str(saved_report.pop("markdown", "") or "")
+        report_id = str(saved_report.get("report_id") or uuid.uuid4())
+        self._validate_report_id(report_id)
+        saved_report["report_id"] = report_id
+        saved_report.setdefault("created_at", self._now())
+        saved_report.setdefault("schema_id", "sample_set.report.v2")
+        saved_report.setdefault(
+            "artifacts",
+            {"json": "report.json", "markdown": "report.md" if markdown else ""},
+        )
+        path = self._report_file(report_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(saved_report, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        if markdown:
+            (path.parent / "report.md").write_text(markdown, encoding="utf-8")
+        return saved_report
+
+    def get_sample_set_report(self, report_id: str) -> dict[str, Any]:
+        path = self._report_file(report_id)
+        if not path.is_file():
+            raise FileNotFoundError(report_id)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise FileNotFoundError(report_id)
+        return data
+
+    def list_sample_set_reports(self) -> dict[str, Any]:
+        reports: list[dict[str, Any]] = []
+        if not self.reports_dir.is_dir():
+            return {"reports": reports, "count": 0}
+        for report_file in sorted(
+            self.reports_dir.glob("*/report.json"),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        ):
+            try:
+                report = json.loads(report_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(report, dict):
+                continue
+            reports.append(
+                {
+                    "report_id": str(report.get("report_id") or report_file.parent.name),
+                    "schema_id": str(report.get("schema_id") or ""),
+                    "created_at": str(report.get("created_at") or ""),
+                    "summary": (
+                        report.get("summary") if isinstance(report.get("summary"), dict) else {}
+                    ),
+                    "sample_count": len(report.get("samples", []))
+                    if isinstance(report.get("samples"), list)
+                    else 0,
+                    "behavior_category_count": _safe_int(
+                        report.get("summary", {}).get("behavior_category_count")
+                        if isinstance(report.get("summary"), dict)
+                        else 0
+                    ),
+                    "attack_technique_count": _safe_int(
+                        report.get("summary", {}).get("attack_technique_count")
+                        if isinstance(report.get("summary"), dict)
+                        else 0
+                    ),
+                }
+            )
+        return {"reports": reports, "count": len(reports)}
+
+    def create_batch_job(
+        self,
+        session_ids: list[str],
+        workflow_id: str,
+        create_report: bool = True,
+    ) -> dict[str, Any]:
+        job_id = str(uuid.uuid4())
+        now = self._now()
+        job = {
+            "job_id": job_id,
+            "batch_id": job_id,
+            "status": "queued",
+            "created_at": now,
+            "updated_at": now,
+            "started_at": "",
+            "completed_at": "",
+            "workflow_id": workflow_id,
+            "session_ids": session_ids,
+            "create_report": bool(create_report),
+            "count": len(session_ids),
+            "completed_count": 0,
+            "failed_count": 0,
+            "current_session_id": "",
+            "report_id": "",
+            "items": [
+                {
+                    "session_id": session_id,
+                    "status": "pending",
+                    "sample": {},
+                    "summary": {},
+                }
+                for session_id in session_ids
+            ],
+            "error": {},
+        }
+        return self.save_batch_job(job)
+
+    def save_batch_job(self, job: dict[str, Any]) -> dict[str, Any]:
+        saved_job = self._sanitize_result(dict(job))
+        job_id = str(saved_job.get("job_id") or saved_job.get("batch_id") or "")
+        self._validate_batch_job_id(job_id)
+        saved_job["job_id"] = job_id
+        saved_job.setdefault("batch_id", job_id)
+        saved_job["updated_at"] = self._now()
+        path = self._batch_job_file(job_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(saved_job, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return saved_job
+
+    def get_batch_job(self, job_id: str) -> dict[str, Any]:
+        path = self._batch_job_file(job_id)
+        if not path.is_file():
+            raise FileNotFoundError(job_id)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise FileNotFoundError(job_id)
+        return data
+
+    def list_batch_jobs(self) -> dict[str, Any]:
+        jobs: list[dict[str, Any]] = []
+        if not self.batch_jobs_dir.is_dir():
+            return {"jobs": jobs, "count": 0}
+        for job_file in sorted(
+            self.batch_jobs_dir.glob("*/job.json"),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        ):
+            try:
+                job = json.loads(job_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(job, dict):
+                continue
+            jobs.append(
+                {
+                    "job_id": str(job.get("job_id") or job_file.parent.name),
+                    "batch_id": str(job.get("batch_id") or job.get("job_id") or ""),
+                    "status": str(job.get("status") or ""),
+                    "created_at": str(job.get("created_at") or ""),
+                    "updated_at": str(job.get("updated_at") or ""),
+                    "workflow_id": str(job.get("workflow_id") or ""),
+                    "count": _safe_int(job.get("count")),
+                    "completed_count": _safe_int(job.get("completed_count")),
+                    "failed_count": _safe_int(job.get("failed_count")),
+                    "report_id": str(job.get("report_id") or ""),
+                }
+            )
+        return {"jobs": jobs, "count": len(jobs)}
+
     def save_ai_output(self, session_id: str, ai_output: dict[str, Any]) -> dict[str, Any]:
         ai_output["session_id"] = session_id
         ai_output.setdefault("items", [])
@@ -257,6 +422,14 @@ class SessionStore:
 
     def _ai_output_file(self, session_id: str) -> Path:
         return self._session_dir(session_id) / "ai_output" / "ai_output.json"
+
+    def _report_file(self, report_id: str) -> Path:
+        self._validate_report_id(report_id)
+        return self.reports_dir / report_id / "report.json"
+
+    def _batch_job_file(self, job_id: str) -> Path:
+        self._validate_batch_job_id(job_id)
+        return self.batch_jobs_dir / job_id / "job.json"
 
     def _write_session(self, session: dict[str, Any]) -> None:
         path = self._session_file(str(session["session_id"]))
@@ -427,3 +600,24 @@ class SessionStore:
             uuid.UUID(session_id)
         except ValueError as exc:
             raise FileNotFoundError(session_id) from exc
+
+    @staticmethod
+    def _validate_report_id(report_id: str) -> None:
+        try:
+            uuid.UUID(report_id)
+        except ValueError as exc:
+            raise FileNotFoundError(report_id) from exc
+
+    @staticmethod
+    def _validate_batch_job_id(job_id: str) -> None:
+        try:
+            uuid.UUID(job_id)
+        except ValueError as exc:
+            raise FileNotFoundError(job_id) from exc
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default

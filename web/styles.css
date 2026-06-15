@@ -166,6 +166,52 @@ dd {
   gap: 8px;
 }
 
+.report-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin: 8px 0 12px;
+}
+
+.report-card {
+  display: grid;
+  gap: 4px;
+  min-height: 0;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.report-card span {
+  color: #62665f;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.job-status {
+  margin: 8px 0 12px;
+}
+
+.job-card {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid #d8d8d2;
+  background: #ffffff;
+}
+
+.job-card span,
+.job-item-list span {
+  color: #62665f;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.job-item-list {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+
 .module-row,
 .config-row,
 .tool-row {
@@ -178,6 +224,34 @@ dd {
 
 .module-row {
   grid-template-columns: minmax(0, 1fr) 180px auto auto;
+}
+
+.module-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.module-pages,
+.module-page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.module-pages a,
+.module-page-nav a {
+  color: #202124;
+  border: 1px solid #b5b8b0;
+  background: #ffffff;
+  padding: 4px 8px;
+  text-decoration: none;
+}
+
+.module-page-nav a.active,
+.module-pages a:hover,
+.module-page-nav a:hover {
+  border-color: #202124;
 }
 
 .config-row {
@@ -206,6 +280,57 @@ dd {
 
 .empty-state {
   color: #62665f;
+}
+
+.page-subtitle {
+  margin: 0;
+  color: #62665f;
+}
+
+.section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.inline-search {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.knowledge-view {
+  overflow-x: auto;
+}
+
+.knowledge-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.knowledge-table th,
+.knowledge-table td {
+  border: 1px solid #d8d8d2;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.knowledge-table th {
+  background: #eeeeea;
+}
+
+.knowledge-table tbody tr {
+  cursor: pointer;
+}
+
+.knowledge-table tbody tr:hover,
+.knowledge-table tbody tr:focus {
+  outline: 2px solid #8c8f89;
+  outline-offset: -2px;
 }
 
 pre {

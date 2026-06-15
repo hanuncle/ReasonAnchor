@@ -43,6 +43,10 @@ _DENIED_PACKAGE_PARTS = {
     "data",
     "local_config.json",
 }
+_SUPPORTED_UI_PAGE_TYPES = {
+    "knowledge_table",
+    "taxonomy_browser",
+}
 
 
 class ModuleStore:
@@ -95,6 +99,17 @@ class ModuleStore:
                         "path": "knowledge/<knowledge_file>.json",
                     }
                 ],
+                "ui": {
+                    "pages": [
+                        {
+                            "page_id": "<page_id>",
+                            "title": "<display title>",
+                            "type": "knowledge_table",
+                            "knowledge_type": "<knowledge_type>",
+                            "columns": ["id", "name"],
+                        }
+                    ]
+                },
                 "config_fields": ["config_fields/<fields_file>.json"],
                 "skill": {
                     "skill_file": "skill/SKILL.md",
@@ -112,6 +127,7 @@ class ModuleStore:
                 "functions": "Reusable module function code.",
                 "workflows": "Reusable workflow templates.",
                 "knowledge": "Module knowledge assets.",
+                "ui": "Module page declarations rendered by platform-owned frontend components.",
                 "config_fields": "User-configurable field declarations.",
                 "skill": "Module skill and playbook.",
                 "config_files": "Module-owned resources such as raw_sorting and function data files.",
@@ -150,6 +166,7 @@ class ModuleStore:
             "functions": [],
             "workflows": [],
             "knowledge": [],
+            "ui": {"pages": []},
             "config_fields": [],
             "skill": {
                 "skill_file": "skill/SKILL.md",
@@ -221,6 +238,7 @@ class ModuleStore:
         self._validate_path_list(manifest, module_root, "workflows", {".json"}, errors)
         self._validate_path_list(manifest, module_root, "config_fields", {".json"}, errors)
         self._validate_knowledge_entries(manifest, module_root, errors)
+        self._validate_ui_entries(manifest, errors)
         self._validate_skill_paths(skill_info, module_root, errors)
 
         return {
@@ -250,6 +268,7 @@ class ModuleStore:
                 for item in manifest.get("knowledge", [])
                 if isinstance(item, dict)
             ],
+            "ui": self._ui_for_manifest(manifest),
             "config_fields": [
                 str(item)
                 for item in manifest.get("config_fields", [])
@@ -261,6 +280,110 @@ class ModuleStore:
     def get_module_skill(self, module_id: str) -> dict[str, Any]:
         manifest = self.get_module(module_id)
         return self._skill_context_for_manifest(manifest)
+
+    def get_module_ui(self, module_id: str) -> dict[str, Any]:
+        manifest = self.get_module(module_id)
+        return {
+            **self._module_summary(manifest),
+            "loaded": True,
+            "usable": True,
+            "ui": self._ui_for_manifest(manifest),
+        }
+
+    def get_module_knowledge(self, module_id: str, knowledge_type: str) -> dict[str, Any]:
+        manifest = self.get_module(module_id)
+        module_root = self._module_root(manifest)
+        requested_type = str(knowledge_type or "")
+        for item in manifest.get("knowledge", []):
+            if not isinstance(item, dict):
+                continue
+            item_type = str(item.get("type") or "knowledge")
+            if item_type != requested_type:
+                continue
+            relative_path = str(item.get("path") or "")
+            path = self._safe_join(module_root, relative_path)
+            data = self._read_json_if_exists(path)
+            if data is None:
+                raise FileNotFoundError(relative_path)
+            return {
+                "module_id": manifest["module_id"],
+                "type": item_type,
+                "path": relative_path,
+                "items_count": self._count_json_items(path),
+                "data": data,
+            }
+        raise ValueError("knowledge_type_not_found")
+
+    def upsert_module_ui_page(
+        self,
+        module_id: str,
+        page_id: str,
+        title: str = "",
+        page_type: str = "knowledge_table",
+        knowledge_type: str = "",
+        description: str = "",
+        columns: list[str] | None = None,
+    ) -> dict[str, Any]:
+        manifest = self.get_module(module_id)
+        module_root = self._module_root(manifest)
+        manifest_path = module_root / "module.json"
+        manifest_on_disk = self._read_json_if_exists(manifest_path)
+        if not isinstance(manifest_on_disk, dict):
+            raise FileNotFoundError("module.json")
+        if not self._valid_manifest(manifest_on_disk, module_root):
+            raise ValueError("module_json_invalid")
+
+        page = self._normalize_ui_page(
+            {
+                "page_id": page_id,
+                "title": title,
+                "description": description,
+                "type": page_type,
+                "knowledge_type": knowledge_type,
+                "columns": columns or [],
+            },
+            manifest_on_disk,
+        )
+        if page is None:
+            raise ValueError("invalid_ui_page")
+
+        ui = manifest_on_disk.get("ui", {})
+        if not isinstance(ui, dict):
+            ui = {}
+        pages = ui.get("pages", [])
+        if not isinstance(pages, list):
+            pages = []
+        next_pages = [
+            existing
+            for existing in pages
+            if not (
+                isinstance(existing, dict)
+                and str(existing.get("page_id") or "") == page["page_id"]
+            )
+        ]
+        next_pages.append(page)
+        ui["pages"] = next_pages
+        manifest_on_disk["ui"] = ui
+
+        errors: list[dict[str, Any]] = []
+        self._validate_ui_entries(manifest_on_disk, errors)
+        if errors:
+            raise ValueError(str(errors[0].get("code") or "invalid_ui_page"))
+
+        manifest_path.write_text(
+            json.dumps(manifest_on_disk, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        updated = self.get_module_ui(module_id)
+        return {
+            **updated,
+            "updated": True,
+            "page": next(
+                item
+                for item in updated["ui"]["pages"]
+                if item["page_id"] == page["page_id"]
+            ),
+        }
 
     def package_module(self, module_id: str) -> dict[str, Any]:
         manifest = self.get_module(module_id)
@@ -561,6 +684,16 @@ class ModuleStore:
             "workflows_count": len(manifest.get("workflows", [])),
             "knowledge_count": len(manifest.get("knowledge", [])),
             "functions_count": len(manifest.get("functions", [])),
+            "ui_pages_count": len(ModuleStore._ui_pages(manifest)),
+            "ui_pages": [
+                {
+                    "page_id": page["page_id"],
+                    "title": page["title"],
+                    "type": page["type"],
+                    "knowledge_type": page["knowledge_type"],
+                }
+                for page in ModuleStore._ui_pages(manifest)
+            ],
         }
 
     @staticmethod
@@ -650,11 +783,74 @@ class ModuleStore:
         if isinstance(data, list):
             return len(data)
         if isinstance(data, dict):
-            for key in ("items", "techniques", "entries"):
+            for key in ("items", "techniques", "entries", "categories", "scenarios", "samples"):
                 if isinstance(data.get(key), list):
                     return len(data[key])
             return 1
         return 0
+
+    @classmethod
+    def _ui_for_manifest(cls, manifest: dict[str, Any]) -> dict[str, Any]:
+        return {"pages": cls._ui_pages(manifest)}
+
+    @classmethod
+    def _ui_pages(cls, manifest: dict[str, Any]) -> list[dict[str, Any]]:
+        ui = manifest.get("ui", {})
+        if not isinstance(ui, dict):
+            return []
+        pages = ui.get("pages", [])
+        if not isinstance(pages, list):
+            return []
+        normalized: list[dict[str, Any]] = []
+        for page in pages:
+            normalized_page = cls._normalize_ui_page(page, manifest)
+            if normalized_page is None:
+                continue
+            normalized.append(normalized_page)
+        return normalized
+
+    @classmethod
+    def _normalize_ui_page(
+        cls,
+        page: Any,
+        manifest: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if not isinstance(page, dict):
+            return None
+        page_id = str(page.get("page_id") or "")
+        page_type = str(page.get("type") or "")
+        knowledge_type = str(page.get("knowledge_type") or "")
+        knowledge_types = {
+            str(item.get("type") or "knowledge")
+            for item in manifest.get("knowledge", [])
+            if isinstance(item, dict)
+        }
+        if (
+            not page_id
+            or cls._safe_name(page_id) != page_id
+            or page_type not in _SUPPORTED_UI_PAGE_TYPES
+            or not knowledge_type
+            or knowledge_type not in knowledge_types
+        ):
+            return None
+        columns = page.get("columns", [])
+        if columns and (
+            not isinstance(columns, list)
+            or any(not isinstance(column, str) or not column for column in columns)
+        ):
+            return None
+        return {
+            "page_id": page_id,
+            "title": str(page.get("title") or page_id),
+            "description": str(page.get("description") or ""),
+            "type": page_type,
+            "knowledge_type": knowledge_type,
+            "columns": [
+                str(column)
+                for column in columns
+                if isinstance(column, str) and column
+            ],
+        }
 
     @staticmethod
     def _load_function_class(
@@ -762,6 +958,72 @@ class ModuleStore:
                 _ALLOWED_PACKAGE_EXTENSIONS,
                 errors,
             )
+
+    @classmethod
+    def _validate_ui_entries(
+        cls,
+        manifest: dict[str, Any],
+        errors: list[dict[str, Any]],
+    ) -> None:
+        ui = manifest.get("ui", {})
+        if ui in ({}, None):
+            return
+        if not isinstance(ui, dict):
+            errors.append(
+                {
+                    "code": "invalid_manifest_field",
+                    "field": "ui",
+                    "message": "Module manifest field must be an object: ui",
+                }
+            )
+            return
+        pages = ui.get("pages", [])
+        if not isinstance(pages, list):
+            errors.append(
+                {
+                    "code": "invalid_manifest_field",
+                    "field": "ui.pages",
+                    "message": "Module manifest field must be a list: ui.pages",
+                }
+            )
+            return
+        knowledge_types = {
+            str(item.get("type") or "knowledge")
+            for item in manifest.get("knowledge", [])
+            if isinstance(item, dict)
+        }
+        for index, page in enumerate(pages):
+            if not isinstance(page, dict):
+                errors.append(cls._entry_error("invalid_manifest_item", "ui.pages", index))
+                continue
+            page_id = str(page.get("page_id") or "")
+            page_type = str(page.get("type") or "")
+            knowledge_type = str(page.get("knowledge_type") or "")
+            if not page_id or cls._safe_name(page_id) != page_id:
+                errors.append(cls._entry_error("invalid_ui_page_id", "ui.pages", index))
+            if not page_type:
+                errors.append(cls._entry_error("missing_ui_page_type", "ui.pages", index))
+            elif page_type not in _SUPPORTED_UI_PAGE_TYPES:
+                errors.append(
+                    cls._entry_error("unsupported_ui_page_type", "ui.pages", index, page_type)
+                )
+            if not knowledge_type:
+                errors.append(cls._entry_error("missing_ui_knowledge_type", "ui.pages", index))
+            elif knowledge_type not in knowledge_types:
+                errors.append(
+                    cls._entry_error(
+                        "unknown_ui_knowledge_type",
+                        "ui.pages",
+                        index,
+                        knowledge_type,
+                    )
+                )
+            columns = page.get("columns", [])
+            if columns and (
+                not isinstance(columns, list)
+                or any(not isinstance(column, str) or not column for column in columns)
+            ):
+                errors.append(cls._entry_error("invalid_ui_columns", "ui.pages", index))
 
     @classmethod
     def _validate_skill_paths(

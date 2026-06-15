@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Module Page - SecurityFunctionPlatform</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <h1>SecurityFunctionPlatform</h1>
+        <nav class="side-nav" aria-label="main navigation">
+          <a href="/">Analysis</a>
+          <a class="active" href="/modules.html">Modules</a>
+          <a href="/config.html">Config</a>
+          <a href="/platform.html">Platform</a>
+          <a href="/raw-data.html">Raw data</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header class="page-header">
+          <div>
+            <h2 id="module-page-title">Module page</h2>
+            <p id="module-page-subtitle" class="page-subtitle"></p>
+          </div>
+          <p id="status-line" role="status">Loading module page...</p>
+        </header>
+
+        <section>
+          <h3>Module Pages</h3>
+          <div id="module-page-nav" class="module-page-nav empty-state">No pages.</div>
+        </section>
+
+        <section>
+          <div class="section-heading">
+            <h3 id="knowledge-title">Knowledge</h3>
+            <label class="inline-search">
+              <span>Search</span>
+              <input id="knowledge-search" type="search" autocomplete="off" />
+            </label>
+          </div>
+          <div id="knowledge-summary" class="details"></div>
+          <div id="knowledge-view" class="knowledge-view empty-state">No knowledge loaded.</div>
+        </section>
+
+        <section>
+          <h3>Selected Item</h3>
+          <pre id="knowledge-detail">{}</pre>
+        </section>
+      </main>
+    </div>
+    <script src="/static/common.js"></script>
+    <script src="/static/module-page.js"></script>
+  </body>
+</html>

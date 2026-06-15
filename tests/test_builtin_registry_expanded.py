@@ -33,6 +33,10 @@ EXPECTED_FUNCTION_IDS = {
     "behavior.map_dynamic",
     "validation.compare_static_dynamic",
     "validation.plan_focused_dynamic",
+    "validation.compare_static_dynamic_function",
+    "validation.plan_focused_function_level",
+    "tool.focused_function_level_analysis",
+    "dynamic.vm_preflight",
     "dynamic.vm_status",
     "dynamic.vm_restore_snapshot",
     "dynamic.vm_upload_sample",
@@ -42,6 +46,7 @@ EXPECTED_FUNCTION_IDS = {
     "dynamic.vm_save_snapshot",
     "ti.virustotal.hash_lookup",
     "ti.malwarebazaar.hash_lookup",
+    "ti.malwarebazaar.download_sample",
     "ti.virustotal.behaviour_summary",
 }
 
@@ -70,6 +75,10 @@ MIGRATED_REVERSE_FUNCTION_IDS = {
     "behavior.map_dynamic",
     "validation.compare_static_dynamic",
     "validation.plan_focused_dynamic",
+    "validation.compare_static_dynamic_function",
+    "validation.plan_focused_function_level",
+    "tool.focused_function_level_analysis",
+    "dynamic.vm_preflight",
     "dynamic.vm_status",
     "dynamic.vm_restore_snapshot",
     "dynamic.vm_upload_sample",
@@ -79,6 +88,7 @@ MIGRATED_REVERSE_FUNCTION_IDS = {
     "dynamic.vm_save_snapshot",
     "ti.virustotal.hash_lookup",
     "ti.malwarebazaar.hash_lookup",
+    "ti.malwarebazaar.download_sample",
     "ti.virustotal.behaviour_summary",
 }
 

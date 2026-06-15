@@ -18,6 +18,9 @@ Use the platform for local security analysis workflows. Do not execute uploaded 
 8. Call `list_functions` and `list_custom_workflows`.
 9. Choose an existing workflow or create one with `save_custom_workflow`, then apply it with `select_custom_workflow`.
 10. Run it with `run_workflow`.
+    - For a short user-approved multi-session batch, use `run_batch_workflow` and review the saved sample-set report.
+    - For long-running batches, VM dynamic analysis, or any workflow likely to exceed MCP tool timeouts, use `submit_batch_workflow_job`, poll with `get_batch_job`, and review the saved report when the job completes.
+    - Cross-sample reports are taxonomy-driven: use `sample_facts`, `behavior_matrix`, `attack_matrix`, `validation_status`, and `knowledge_links` before writing conclusions.
 11. Analyze `ai_output` first.
 12. If refined output is insufficient, call `get_raw_output_map` before `get_raw_output_by_id`, then fetch only the needed `raw_output_id`.
 13. Use `run_function` for one additional registered function result when needed.
@@ -37,12 +40,17 @@ Modules are user-extensible packages under `modules/<module_id>/`. A module may 
 - `config_fields/`: user-configurable field declarations.
 - `skill/`: module `SKILL.md`, `playbook.json`, and optional `final_result_schema.json`.
 - `config_files/`: module-owned resources such as raw sorting rules and function data files.
+- `module.json.ui.pages`: module page declarations rendered by platform-owned frontend components.
 
 Use `get_module_template` to inspect the default module format. Use `create_module` to create a module in that default format.
 
 Module contents are intentionally editable only after user approval. Platform code is not self-iterated during sample analysis. Good generated code can be integrated into the owning module, weak function code can be improved, noisy raw sorting can be rewritten, and module skill/playbook/schema guidance can be tightened. The goal is to reduce token use, improve `ai_output`, and make future runs more effective.
 
 Put module configuration field definitions in `modules/<module_id>/config_fields/` and declare them in `module.json`. Put module resources in `modules/<module_id>/config_files/`. Put module final summary schema in `modules/<module_id>/skill/final_result_schema.json`. Do not put module-owned files in platform `config_files/`.
+
+Declare module-specific frontend pages in `module.json.ui.pages`. Pages should reference declared module knowledge assets by `knowledge_type` and use platform-owned renderers such as `knowledge_table` or `taxonomy_browser`; modules should not ship arbitrary executable frontend code for trusted rendering.
+
+Use `get_module_ui(module_id)` to inspect declared module pages, `get_module_knowledge(module_id, knowledge_type)` to fetch one declared knowledge asset for a page, and `upsert_module_ui_page(...)` to create or replace one module page declaration after the user approves module iteration. `upsert_module_ui_page` only updates `module.json.ui.pages`; the target `knowledge_type` must already be declared in `module.json.knowledge`.
 
 Before writing any new file, inspect the target module directory and nearby files so the new file lands in the correct module location.
 
@@ -55,12 +63,15 @@ Before writing any new file, inspect the target module directory and nearby file
 | `get_module_template` | Return the default module directory and manifest format. |
 | `get_module_skill` | Load only the selected module's skill, playbook, and final result schema. |
 | `get_module_detail` | Inspect one module's manifest, functions, workflows, config fields, and validation. |
+| `get_module_ui` | Inspect one module's frontend page declarations. |
+| `get_module_knowledge` | Fetch one declared module knowledge asset by `knowledge_type`. |
 | `create_module` | Create a default-format module skeleton. |
 | `load_module` | Validate a module through the compatibility load endpoint. |
 | `package_module` | Package a module as an `.sfpmod.zip` archive. |
 | `export_module` | Export a module package. |
 | `import_module_archive` | Import a trusted local module archive. |
 | `list_module_knowledge` | List module knowledge assets without loading full contents. |
+| `upsert_module_ui_page` | Create or replace one module frontend page declaration using a platform-owned renderer. |
 | `upload_sample` | Upload one local sample and create a session. |
 | `upload_samples` | Upload multiple local samples and create sessions. |
 | `list_functions` | List all registered platform and module functions. |
@@ -68,6 +79,12 @@ Before writing any new file, inspect the target module directory and nearby file
 | `save_custom_workflow` | Save a new workflow template. |
 | `select_custom_workflow` | Apply a workflow template to a session. |
 | `run_workflow` | Run the selected workflow and return compact `ai_output`. |
+| `run_batch_workflow` | Run one workflow across multiple sessions and save a cross-sample report. |
+| `submit_batch_workflow_job` | Submit a long-running batch workflow job and return its job id/status. |
+| `list_batch_jobs` | List persisted batch workflow jobs. |
+| `get_batch_job` | Fetch one persisted batch workflow job, including progress and report id. |
+| `list_sample_set_reports` | List saved cross-sample reports. |
+| `get_sample_set_report` | Fetch one saved cross-sample report. |
 | `get_ai_output` | Fetch refined AI-facing session output. |
 | `get_ai_output_by_raw_id` | Fetch one refined output item by `raw_output_id`. |
 | `get_raw_output_map` | List raw output ids before fetching raw details. |
@@ -88,6 +105,7 @@ Before writing any new file, inspect the target module directory and nearby file
 - If a function is insufficient, improve or create code in `modules/<module_id>/functions/` and declare it in `module.json`.
 - If a function needs static resources, put them in `modules/<module_id>/config_files/<function_id>/`.
 - If a function needs user configuration, add field declarations under `modules/<module_id>/config_fields/` and declare them in `module.json`.
+- If a module needs a frontend knowledge page, declare or update it with `upsert_module_ui_page` so it stays in `module.json.ui.pages` and uses platform-owned renderers.
 - If module guidance is stale, update `modules/<module_id>/skill/SKILL.md`, `modules/<module_id>/skill/playbook.json`, or `modules/<module_id>/skill/final_result_schema.json`.
 - Add tests when generated code becomes a reusable module function.
 

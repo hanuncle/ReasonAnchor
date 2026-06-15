@@ -12,6 +12,7 @@ from security_function_platform.module_system import ModuleStore
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVERSE_MODULE = PROJECT_ROOT / "modules" / "reverse" / "module.json"
 VULN_SCAN_MODULE = PROJECT_ROOT / "modules" / "vuln_scan" / "module.json"
+REVERSE_AUTO_WORKFLOW = "module:reverse:reverse_auto_download_static_dynamic_focused"
 requires_local_example_modules = pytest.mark.skipif(
     not REVERSE_MODULE.is_file() or not VULN_SCAN_MODULE.is_file(),
     reason="local example modules are not included in this platform-only checkout",
@@ -47,9 +48,9 @@ def test_loaded_module_workflows_are_exposed_and_selectable(tmp_path, monkeypatc
 
     workflows = client.get("/api/workflows").json()["workflows"]
     workflow_ids = {item["workflow_id"] for item in workflows}
-    assert "module:reverse:reverse_basic" in workflow_ids
+    assert REVERSE_AUTO_WORKFLOW in workflow_ids
 
-    workflow_response = client.get("/api/workflows/module:reverse:reverse_basic")
+    workflow_response = client.get(f"/api/workflows/{REVERSE_AUTO_WORKFLOW}")
     assert workflow_response.status_code == 200
     assert workflow_response.json()["source"] == "module"
     assert workflow_response.json()["module_id"] == "reverse"
@@ -60,10 +61,12 @@ def test_loaded_module_workflows_are_exposed_and_selectable(tmp_path, monkeypatc
     ).json()
     apply_response = client.post(
         f"/api/sessions/{session['session_id']}/workflow-template",
-        json={"workflow_id": "module:reverse:reverse_basic"},
+        json={"workflow_id": REVERSE_AUTO_WORKFLOW},
     )
     assert apply_response.status_code == 200
-    assert apply_response.json()["workflow"]["name"] == "reverse_basic"
+    assert apply_response.json()["workflow"]["name"] == (
+        "reverse_auto_download_static_dynamic_focused"
+    )
 
 
 @requires_local_example_modules
@@ -94,6 +97,7 @@ def test_module_store_returns_template_and_module_skill_on_demand(tmp_path) -> N
     assert template["module_json"]["skill"]["final_result_schema_file"] == (
         "skill/final_result_schema.json"
     )
+    assert template["module_json"]["ui"]["pages"][0]["type"] == "knowledge_table"
     assert "Reverse Module Skill" in context["skill"]
     assert context["playbook"]["module_id"] == "reverse"
     assert context["final_result_schema"]["schema_id"] == "reverse.final_result.v1"
@@ -128,6 +132,10 @@ def test_module_store_can_create_module_skeleton(tmp_path) -> None:
     assert (
         tmp_path / "modules" / "demo_module" / "skill" / "final_result_schema.json"
     ).is_file()
+    manifest = json.loads(
+        (tmp_path / "modules" / "demo_module" / "module.json").read_text(encoding="utf-8")
+    )
+    assert manifest["ui"] == {"pages": []}
     assert module_store.validate_module("demo_module")["valid"] is True
 
 
@@ -182,6 +190,7 @@ def test_reverse_module_declares_all_reverse_functions_and_config_fields(tmp_pat
         "ti.virustotal.hash_lookup",
         "ti.virustotal.behaviour_summary",
         "ti.malwarebazaar.hash_lookup",
+        "ti.malwarebazaar.download_sample",
     } <= function_ids
     assert {
         "virustotal.api_key",
@@ -203,7 +212,7 @@ def test_reverse_module_declares_all_reverse_functions_and_config_fields(tmp_pat
         "vmware.ready_snapshot",
         "vmware.host_output_dir",
     } <= config_paths
-    assert detail["functions_count"] >= 34
+    assert detail["functions_count"] >= 35
 
 
 def test_module_validation_reports_basic_template_errors(tmp_path) -> None:
@@ -275,7 +284,99 @@ def test_module_detail_api_returns_manifest_summary_and_validation(tmp_path, mon
     assert detail["module_id"] == "reverse"
     assert detail["usable"] is True
     assert detail["validation"]["valid"] is True
-    assert detail["workflows"][0]["workflow_id"] == "module:reverse:reverse_basic"
+    assert detail["workflows"][0]["workflow_id"] == REVERSE_AUTO_WORKFLOW
+    assert detail["ui"]["pages"][0]["page_id"] == "attack_knowledge"
+
+
+@requires_local_example_modules
+def test_module_ui_and_knowledge_api_return_declared_assets(tmp_path, monkeypatch) -> None:
+    module_store = ModuleStore("modules", tmp_path / "data" / "modules" / "loaded_modules.json")
+    monkeypatch.setattr(main, "module_store", module_store)
+    client = TestClient(main.app)
+
+    modules = client.get("/api/modules").json()["modules"]
+    reverse_summary = next(item for item in modules if item["module_id"] == "reverse")
+    assert reverse_summary["ui_pages_count"] >= 3
+    assert "attack_knowledge" in {
+        page["page_id"] for page in reverse_summary["ui_pages"]
+    }
+
+    ui_response = client.get("/api/modules/reverse/ui")
+    assert ui_response.status_code == 200
+    page_ids = {page["page_id"] for page in ui_response.json()["ui"]["pages"]}
+    assert {"attack_knowledge", "behavior_taxonomy", "validation_samples"} <= page_ids
+
+    knowledge_response = client.get("/api/modules/reverse/knowledge/attack_techniques")
+    assert knowledge_response.status_code == 200
+    knowledge = knowledge_response.json()
+    assert knowledge["type"] == "attack_techniques"
+    assert knowledge["items_count"] >= 6
+    assert knowledge["data"]["techniques"][0]["technique_id"].startswith("T")
+
+    vuln_ui = client.get("/api/modules/vuln_scan/ui").json()
+    assert vuln_ui["ui"]["pages"][0]["page_id"] == "vulnerability_knowledge"
+    vuln_knowledge = client.get(
+        "/api/modules/vuln_scan/knowledge/vulnerability_knowledge"
+    ).json()
+    assert vuln_knowledge["data"]["entries"][0]["cwe_id"].startswith("CWE-")
+
+    missing_response = client.get("/api/modules/reverse/knowledge/not_declared")
+    assert missing_response.status_code == 404
+
+    page_response = client.get("/module-page.html")
+    assert page_response.status_code == 200
+    assert "module-page.js" in page_response.text
+
+
+def test_module_ui_page_upsert_api_creates_platform_rendered_page(tmp_path, monkeypatch) -> None:
+    modules_dir = tmp_path / "modules"
+    module_store = ModuleStore(modules_dir, tmp_path / "data" / "modules" / "loaded_modules.json")
+    module_store.create_module("demo")
+    module_root = modules_dir / "demo"
+    (module_root / "knowledge" / "items.json").write_text(
+        json.dumps({"items": [{"id": "K-1", "name": "Demo knowledge"}]}),
+        encoding="utf-8",
+    )
+    manifest_path = module_root / "module.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["knowledge"] = [{"type": "demo_knowledge", "path": "knowledge/items.json"}]
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    monkeypatch.setattr(main, "module_store", module_store)
+    client = TestClient(main.app)
+
+    response = client.put(
+        "/api/modules/demo/ui/pages/demo_knowledge",
+        json={
+            "title": "Demo Knowledge",
+            "description": "A demo knowledge page.",
+            "type": "knowledge_table",
+            "knowledge_type": "demo_knowledge",
+            "columns": ["id", "name"],
+        },
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["updated"] is True
+    assert result["page"]["page_id"] == "demo_knowledge"
+    assert result["page"]["type"] == "knowledge_table"
+    assert client.get("/api/modules/demo").json()["ui"]["pages"][0]["knowledge_type"] == (
+        "demo_knowledge"
+    )
+    assert client.get("/api/modules/demo/knowledge/demo_knowledge").json()["items_count"] == 1
+
+    unknown_knowledge = client.put(
+        "/api/modules/demo/ui/pages/missing",
+        json={"type": "knowledge_table", "knowledge_type": "missing"},
+    )
+    assert unknown_knowledge.status_code == 400
+
+    unsupported_type = client.put(
+        "/api/modules/demo/ui/pages/custom",
+        json={"type": "custom_js", "knowledge_type": "demo_knowledge"},
+    )
+    assert unsupported_type.status_code == 400
 
 
 @requires_local_example_modules
