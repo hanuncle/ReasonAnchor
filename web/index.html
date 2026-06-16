@@ -26,6 +26,22 @@
         </header>
 
         <section>
+          <h3>Platform menu</h3>
+          <div id="platform-action-list" class="action-grid empty-state">Loading platform actions...</div>
+        </section>
+
+        <section>
+          <h3>Module menu</h3>
+          <div class="inline-controls">
+            <select id="module-select" aria-label="Module"></select>
+            <button id="load-module-actions-button" type="button">Load module menu</button>
+            <button id="refresh-capabilities-button" type="button">Refresh module capabilities</button>
+          </div>
+          <div id="module-action-list" class="action-grid empty-state">Select a module.</div>
+          <div id="module-capabilities" class="capability-panel empty-state">No module capabilities loaded.</div>
+        </section>
+
+        <section>
           <h3>样本上传</h3>
           <label class="field">
             <span>样本</span>

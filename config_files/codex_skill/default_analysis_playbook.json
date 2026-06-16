@@ -22,14 +22,20 @@
       "get_platform_skill"
     ],
     "list_modules": [
+      "get_platform_actions",
       "list_modules"
     ],
     "select_module": [
-      "list_modules"
+      "get_platform_actions",
+      "list_modules",
+      "get_module_actions",
+      "get_module_capabilities"
     ],
     "load_selected_module_skill": [
       "get_module_skill",
       "get_module_detail",
+      "get_module_actions",
+      "get_module_capabilities",
       "list_module_knowledge",
       "get_module_ui",
       "get_module_knowledge"
@@ -48,7 +54,9 @@
     "ensure_session": [
       "upload_sample",
       "upload_samples",
-      "create_target_session"
+      "create_target_session",
+      "list_sessions",
+      "get_session"
     ],
     "inspect_functions": [
       "list_functions"
@@ -95,6 +103,10 @@
     ],
     "module_template_tool": "get_module_template",
     "module_creation_tool": "create_module",
+    "platform_actions_tool": "get_platform_actions",
+    "module_actions_tool": "get_module_actions",
+    "module_capabilities_tool": "get_module_capabilities",
+    "module_capabilities_refresh_tool": "refresh_module_capabilities",
     "module_skill_loading": "Load only the selected module skill/playbook/final_result_schema to reduce token use.",
     "module_final_result_schema": "Use get_module_skill(module_id).final_result_schema for the final AI summary format.",
     "module_iteration_goal": "Move useful code and sorters into the owning module so future runs use fewer tokens and produce better ai_output.",
@@ -125,6 +137,20 @@
       ],
       "do_not_use_when": [
         "Do not use it as sample evidence."
+      ]
+    },
+    "get_platform_actions": {
+      "purpose": "Return the platform startup menu actions.",
+      "use_when": [
+        "The user needs platform-level startup choices such as select module, create module, import module, resume session, reports, or configuration."
+      ],
+      "inputs": [],
+      "returns": [
+        "platform action list",
+        "default_module_id"
+      ],
+      "do_not_use_when": [
+        "A module has already been selected and module-specific menu actions are needed."
       ]
     },
     "upload_sample": {
@@ -180,6 +206,35 @@
       "do_not_use_when": [
         "The module needs uploaded sample bytes.",
         "Targets or authorized scope are ambiguous."
+      ]
+    },
+    "list_sessions": {
+      "purpose": "List persisted sessions.",
+      "use_when": [
+        "The user wants to resume an existing task or choose a prior session."
+      ],
+      "inputs": [],
+      "returns": [
+        "session summaries",
+        "count"
+      ],
+      "do_not_use_when": [
+        "A new upload or target session should be created instead."
+      ]
+    },
+    "get_session": {
+      "purpose": "Fetch one persisted session by id.",
+      "use_when": [
+        "A specific existing session should be resumed or inspected."
+      ],
+      "inputs": [
+        "session_id"
+      ],
+      "returns": [
+        "session"
+      ],
+      "do_not_use_when": [
+        "Use list_sessions first when the session id is unknown."
       ]
     },
     "list_functions": {
@@ -269,6 +324,54 @@
       ],
       "do_not_use_when": [
         "Do not load every module detail unless the user asks."
+      ]
+    },
+    "get_module_actions": {
+      "purpose": "Return the selected module's generic platform-owned menu actions.",
+      "use_when": [
+        "After selecting a module and before choosing common module operations such as view capabilities, start task, view workflows, run function, configure module, or view knowledge pages."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "module action list"
+      ],
+      "do_not_use_when": [
+        "Do not use it as execution evidence or module analysis output."
+      ]
+    },
+    "get_module_capabilities": {
+      "purpose": "Return the selected module's cached structured capability summary.",
+      "use_when": [
+        "The user selects 0. view module capabilities or needs a concise module capability overview without re-summarizing module files."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "capability summary",
+        "display sections",
+        "cache metadata"
+      ],
+      "do_not_use_when": [
+        "Use get_module_detail, list_functions, or list_custom_workflows when exact raw metadata is required."
+      ]
+    },
+    "refresh_module_capabilities": {
+      "purpose": "Force regeneration of a selected module capability summary cache.",
+      "use_when": [
+        "The module manifest, functions, workflows, knowledge assets, or playbook changed and the cached capability summary should be refreshed."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "refreshed capability summary",
+        "cache metadata"
+      ],
+      "do_not_use_when": [
+        "Use get_module_capabilities when the cache is current."
       ]
     },
     "get_module_skill": {

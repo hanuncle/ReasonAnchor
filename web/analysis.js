@@ -2,6 +2,8 @@ const { request, setStatus, renderEmpty, renderSelect, escapeHtml, formatSources
 
 let sessions = [];
 let workflows = [];
+let modules = [];
+let currentModuleId = "";
 let sampleSetReports = [];
 let currentSession = null;
 let selectedBatchSessionIds = new Set();
@@ -17,6 +19,10 @@ const targetLabel = document.querySelector("#target-label");
 const targetNotes = document.querySelector("#target-notes");
 const sessionSelect = document.querySelector("#session-select");
 const workflowSelect = document.querySelector("#workflow-select");
+const moduleSelect = document.querySelector("#module-select");
+const platformActionList = document.querySelector("#platform-action-list");
+const moduleActionList = document.querySelector("#module-action-list");
+const moduleCapabilities = document.querySelector("#module-capabilities");
 const sessionDetails = document.querySelector("#session-details");
 const finalResult = document.querySelector("#final-result");
 const batchSessionList = document.querySelector("#batch-session-list");
@@ -26,6 +32,8 @@ const reportSelect = document.querySelector("#report-select");
 const reportList = document.querySelector("#report-list");
 
 document.querySelector("#upload-button").addEventListener("click", uploadSample);
+document.querySelector("#load-module-actions-button").addEventListener("click", loadSelectedModuleActions);
+document.querySelector("#refresh-capabilities-button").addEventListener("click", () => loadModuleCapabilities(true));
 document.querySelector("#create-target-session-button").addEventListener("click", createTargetSession);
 document.querySelector("#refresh-sessions-button").addEventListener("click", loadSessions);
 document.querySelector("#load-session-button").addEventListener("click", loadSelectedSession);
@@ -40,14 +48,61 @@ document.querySelector("#refresh-result-button").addEventListener("click", loadC
 document.querySelector("#open-result-button").addEventListener("click", openResult);
 document.querySelector("#open-raw-button").addEventListener("click", openRawOutput);
 reportSelect.addEventListener("change", loadSelectedReport);
+moduleSelect.addEventListener("change", loadSelectedModuleActions);
 
 init();
 
 async function init() {
   await safe("初始化失败", async () => {
-    await Promise.all([loadSessions(), loadWorkflows(), refreshReports()]);
+    await Promise.all([loadPlatformActions(), loadModules(), loadSessions(), loadWorkflows(), refreshReports()]);
     setStatus("分析工作台已就绪。");
   });
+}
+
+async function loadPlatformActions() {
+  const data = await request("/api/platform/actions");
+  renderActions(platformActionList, data.actions || [], handleAction);
+}
+
+async function loadModules() {
+  const data = await request("/api/modules");
+  modules = data.modules || [];
+  renderSelect(moduleSelect, modules, "Select module", (moduleItem) => ({
+    value: moduleItem.module_id,
+    label: `${moduleItem.module_id} | ${moduleItem.name || ""}`,
+  }));
+  const defaultModule = modules.find((item) => item.module_id === "reverse") || modules[0] || null;
+  if (defaultModule) {
+    currentModuleId = defaultModule.module_id;
+    moduleSelect.value = currentModuleId;
+    await loadSelectedModuleActions();
+  }
+}
+
+async function loadSelectedModuleActions() {
+  const moduleId = moduleSelect.value;
+  currentModuleId = moduleId;
+  if (!moduleId) {
+    renderEmpty(moduleActionList, "Select a module.");
+    renderEmpty(moduleCapabilities, "No module capabilities loaded.");
+    return;
+  }
+  const data = await request(`/api/modules/${encodeURIComponent(moduleId)}/actions`);
+  renderActions(moduleActionList, data.actions || [], handleAction);
+  await loadModuleCapabilities(false);
+}
+
+async function loadModuleCapabilities(refresh) {
+  if (!currentModuleId) {
+    renderEmpty(moduleCapabilities, "Select a module.");
+    return;
+  }
+  const url = `/api/modules/${encodeURIComponent(currentModuleId)}/capabilities${refresh ? "/refresh" : ""}`;
+  const data = await request(url, { method: refresh ? "POST" : "GET" });
+  renderModuleCapabilities(data);
+  setStatus(
+    `${currentModuleId} capabilities ${data.cache?.hit ? "loaded from cache" : "generated"}.`,
+  );
 }
 
 async function loadSessions() {
@@ -455,6 +510,129 @@ async function loadCurrentResult() {
     }
     renderFinalResult(result);
   });
+}
+
+function renderActions(container, actions, onClick) {
+  container.replaceChildren();
+  if (!Array.isArray(actions) || !actions.length) {
+    renderEmpty(container, "No actions.");
+    return;
+  }
+  actions
+    .slice()
+    .sort((left, right) => Number(left.menu_index ?? 999) - Number(right.menu_index ?? 999))
+    .forEach((item) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "action-button";
+      button.disabled = item.enabled === false;
+      const index = item.menu_index ?? "";
+      button.innerHTML = `
+        <strong>${escapeHtml(`${index}. ${item.label || item.id}`)}</strong>
+        <span>${escapeHtml(item.enabled === false ? item.disabled_reason || "" : item.description || "")}</span>
+      `;
+      button.addEventListener("click", () => onClick(item));
+      container.append(button);
+    });
+}
+
+function handleAction(item) {
+  const action = item.action || {};
+  if (action.type === "select_module") {
+    moduleSelect.focus();
+    setStatus("Select a module, then load the module menu.");
+    return;
+  }
+  if (action.type === "enter_module" && action.module_id) {
+    moduleSelect.value = action.module_id;
+    loadSelectedModuleActions();
+    return;
+  }
+  if (action.type === "view_module_capabilities") {
+    currentModuleId = action.module_id || currentModuleId;
+    if (currentModuleId) {
+      moduleSelect.value = currentModuleId;
+    }
+    loadModuleCapabilities(false);
+    return;
+  }
+  if (action.type === "view_module_knowledge") {
+    const moduleItem = modules.find((candidate) => candidate.module_id === action.module_id);
+    const firstPage = Array.isArray(moduleItem?.ui_pages) ? moduleItem.ui_pages[0] : null;
+    if (firstPage?.page_id) {
+      window.location.href = `/module-page.html?module=${encodeURIComponent(action.module_id)}&page=${encodeURIComponent(firstPage.page_id)}`;
+      return;
+    }
+  }
+  if (action.type === "open_page" && action.path) {
+    window.location.href = action.path;
+    return;
+  }
+  if (action.type === "create_module") {
+    window.location.href = "/modules.html";
+    return;
+  }
+  if (action.type === "create_session") {
+    const target = action.session_kind === "sample" ? sampleFile : targetValues;
+    target?.focus();
+    setStatus(action.session_kind === "sample" ? "Choose a sample file and upload it." : "Enter targets and authorized scope.");
+    return;
+  }
+  if (action.type === "focus" && action.target) {
+    const target = document.querySelector(`#${CSS.escape(action.target)}`);
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    target?.focus?.();
+    return;
+  }
+  setStatus(`${item.label || item.id} is available through the existing controls.`);
+}
+
+function renderModuleCapabilities(data) {
+  moduleCapabilities.replaceChildren();
+  if (!data || !data.module_id) {
+    renderEmpty(moduleCapabilities, "No module capabilities loaded.");
+    return;
+  }
+  const summary = data.capability_summary || {};
+  const header = document.createElement("article");
+  header.className = "capability-header";
+  header.innerHTML = `
+    <h4>${escapeHtml(data.name || data.module_id)}</h4>
+    <p>${escapeHtml(data.description || "")}</p>
+    <span>${escapeHtml(data.cache?.hit ? "cache hit" : "generated")} | ${escapeHtml(data.generated_at || "")}</span>
+  `;
+  moduleCapabilities.append(header);
+
+  (data.display_sections || []).forEach((section) => {
+    const block = document.createElement("article");
+    block.className = "capability-section";
+    const list = document.createElement("ul");
+    (section.items || []).forEach((text) => {
+      const listItem = document.createElement("li");
+      listItem.textContent = String(text || "");
+      list.append(listItem);
+    });
+    block.innerHTML = `<h4>${escapeHtml(section.title || "")}</h4>`;
+    block.append(list);
+    moduleCapabilities.append(block);
+  });
+
+  if (Array.isArray(summary.workflows) && summary.workflows.length) {
+    const block = document.createElement("article");
+    block.className = "capability-section";
+    block.innerHTML = "<h4>Workflow metadata</h4>";
+    const details = document.createElement("dl");
+    details.className = "details";
+    summary.workflows.forEach((workflow) => {
+      const term = document.createElement("dt");
+      term.textContent = workflow.name || workflow.workflow_id || "";
+      const desc = document.createElement("dd");
+      desc.textContent = `${workflow.steps_count || 0} steps | risk=${workflow.risk || ""} | network=${workflow.network ? "yes" : "no"} | config=${workflow.config_required ? "yes" : "no"}`;
+      details.append(term, desc);
+    });
+    block.append(details);
+    moduleCapabilities.append(block);
+  }
 }
 
 function renderSession(session) {

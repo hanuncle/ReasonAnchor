@@ -105,6 +105,35 @@ def test_focused_dynamic_validation_requires_confirmation(tmp_path, monkeypatch)
     assert calls == []
 
 
+def test_focused_dynamic_validation_skips_when_plan_has_no_ready_targets(tmp_path, monkeypatch) -> None:
+    calls = []
+
+    def fake_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        return subprocess.CompletedProcess(args[0], 0, "", "")
+
+    monkeypatch.setattr(vmware_dynamic.subprocess, "run", fake_run)
+    context = _vm_context(tmp_path)
+    context["results"]["focused_dynamic_validation_plan"] = {
+        "function_id": "validation.plan_focused_dynamic",
+        "result_key": "focused_dynamic_validation_plan",
+        "status": "success",
+        "data": {"targets": []},
+        "error": None,
+    }
+
+    result = DynamicVmValidateBehaviorFunction().run(
+        context,
+        {"confirm_execute": FOCUSED_EXECUTE_CONFIRMATION},
+    )
+
+    assert result.status == "skipped"
+    assert result.data["skip_reason"] == "no_focused_validation_targets"
+    assert result.data["observed"] is False
+    assert result.data["counts"]["ready_targets"] == 0
+    assert calls == []
+
+
 def test_focused_dynamic_validation_runs_fixture_and_maps_target(tmp_path, monkeypatch) -> None:
     calls = []
 

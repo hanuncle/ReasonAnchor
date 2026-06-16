@@ -198,6 +198,147 @@ def test_behavior_map_dynamic_filters_environment_noise_when_sample_identity_kno
     assert result.data["attribution"]["counts"]["environment_noise"] == 3
 
 
+def test_behavior_map_dynamic_does_not_confirm_by_process_name_only() -> None:
+    telemetry = {
+        "schema_version": "1",
+        "telemetry_id": "process-name-attribution-test",
+        "process_events": [
+            {
+                "event_id": "evt-seed",
+                "event_type": "process_create",
+                "process_guid": "{sample}",
+                "pid": 100,
+                "process_name": "sample.exe",
+                "command_line": "C:\\Samples\\sample.exe",
+            },
+            {
+                "event_id": "evt-child",
+                "event_type": "process_create",
+                "process_guid": "{child}",
+                "parent_process_guid": "{sample}",
+                "pid": 101,
+                "parent_pid": 100,
+                "process_name": "svchost.exe",
+                "command_line": "C:\\Windows\\System32\\svchost.exe -k sample",
+            },
+            {
+                "event_id": "evt-noise",
+                "event_type": "process_create",
+                "pid": 202,
+                "process_name": "svchost.exe",
+                "command_line": "C:\\Windows\\System32\\svchost.exe -k unrelated",
+            },
+        ],
+        "network_events": [
+            {
+                "event_id": "evt-child-net",
+                "event_type": "network_connect",
+                "pid": 101,
+                "process_name": "svchost.exe",
+                "destination_host": "sample.example",
+            },
+            {
+                "event_id": "evt-noise-net",
+                "event_type": "network_connect",
+                "pid": 202,
+                "process_name": "svchost.exe",
+                "destination_host": "windows.example",
+            },
+        ],
+    }
+
+    result = BehaviorMapDynamicFunction().run(
+        {"filename": "sample.exe", "results": {}},
+        {"telemetry": telemetry},
+    )
+
+    assert result.status == "success"
+    event_ids = {
+        evidence["event_id"]
+        for behavior in result.data["behaviors"]
+        for evidence in behavior["evidence"]
+    }
+    assert "evt-child-net" in event_ids
+    assert "evt-noise" not in event_ids
+    assert "evt-noise-net" not in event_ids
+    assert result.data["counts"]["mapped_events"] == 3
+    assert result.data["counts"]["excluded_events"] == 2
+
+
+def test_behavior_map_dynamic_does_not_reuse_pid_when_raw_guid_changes() -> None:
+    telemetry = {
+        "schema_version": "1",
+        "telemetry_id": "pid-reuse-attribution-test",
+        "process_events": [
+            {
+                "event_id": "evt-seed",
+                "event_type": "process_create",
+                "pid": 100,
+                "process_name": "sample.exe",
+                "command_line": "C:\\Samples\\sample.exe",
+                "raw": (
+                    "Process Create: ProcessGuid: {sample-guid} ProcessId: 100 "
+                    "Image: C:\\Samples\\sample.exe"
+                ),
+            },
+            {
+                "event_id": "evt-child",
+                "event_type": "process_create",
+                "pid": 200,
+                "parent_pid": 100,
+                "process_name": "wscript.exe",
+                "command_line": "wscript.exe C:\\Users\\user\\drop.vbs",
+                "raw": (
+                    "Process Create: ProcessGuid: {child-guid} ProcessId: 200 "
+                    "Image: C:\\Windows\\System32\\wscript.exe"
+                ),
+            },
+            {
+                "event_id": "evt-reused-pid",
+                "event_type": "process_create",
+                "pid": 200,
+                "parent_pid": 4,
+                "process_name": "svchost.exe",
+                "command_line": "C:\\Windows\\System32\\svchost.exe -k unrelated",
+                "raw": (
+                    "Process Create: ProcessGuid: {reused-guid} ProcessId: 200 "
+                    "Image: C:\\Windows\\System32\\svchost.exe"
+                ),
+            },
+        ],
+        "network_events": [
+            {
+                "event_id": "evt-reused-net",
+                "event_type": "network_connect",
+                "pid": 200,
+                "process_name": "svchost.exe",
+                "destination_host": "windows.example",
+                "raw": (
+                    "Network connection detected: ProcessGuid: {reused-guid} "
+                    "ProcessId: 200 Image: C:\\Windows\\System32\\svchost.exe"
+                ),
+            }
+        ],
+    }
+
+    result = BehaviorMapDynamicFunction().run(
+        {"filename": "sample.exe", "results": {}},
+        {"telemetry": telemetry},
+    )
+
+    assert result.status == "success"
+    event_ids = {
+        evidence["event_id"]
+        for behavior in result.data["behaviors"]
+        for evidence in behavior["evidence"]
+    }
+    assert "evt-child" in event_ids
+    assert "evt-reused-pid" not in event_ids
+    assert "evt-reused-net" not in event_ids
+    assert result.data["counts"]["mapped_events"] == 2
+    assert result.data["counts"]["excluded_events"] == 2
+
+
 def test_behavior_map_dynamic_errors_when_telemetry_missing() -> None:
     result = BehaviorMapDynamicFunction().run({"results": {}}, {})
 

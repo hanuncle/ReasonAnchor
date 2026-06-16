@@ -9,8 +9,13 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from security_function_platform.api.action_options import (
+    build_module_actions,
+    build_platform_actions,
+)
 from security_function_platform.api.builtin_registry import create_builtin_registry
 from security_function_platform.api.config_store import ConfigStore
+from security_function_platform.api.module_capabilities import ModuleCapabilityCache
 from security_function_platform.api.session_store import SessionStore
 from security_function_platform.api.workflow_store import WorkflowStore
 from security_function_platform.core.function_registry import FunctionRegistry
@@ -23,6 +28,7 @@ config_store = ConfigStore()
 workflow_store = WorkflowStore()
 module_store = ModuleStore()
 runner = WorkflowRunner()
+capability_cache = ModuleCapabilityCache()
 
 app = FastAPI(title="SecurityFunctionPlatform")
 
@@ -81,13 +87,14 @@ def list_functions() -> list[dict[str, Any]]:
     return _current_registry().list_functions()
 
 
+@app.get("/api/platform/actions")
+def get_platform_actions() -> dict[str, Any]:
+    return build_platform_actions(module_store.list_modules().get("modules", []))
+
+
 @app.get("/api/workflows")
 def list_workflows() -> dict[str, Any]:
-    workflows = [
-        *workflow_store.list_workflows()["workflows"],
-        *module_store.list_workflows()["workflows"],
-    ]
-    return {"workflows": workflows}
+    return {"workflows": _all_workflow_summaries()}
 
 
 @app.get("/api/workflows/{workflow_id}")
@@ -287,6 +294,50 @@ def apply_workflow_template(session_id: str, body: dict[str, Any]) -> dict[str, 
 @app.get("/api/modules")
 def list_modules() -> dict[str, Any]:
     return module_store.list_modules()
+
+
+@app.get("/api/modules/{module_id}/actions")
+def get_module_actions(module_id: str) -> dict[str, Any]:
+    try:
+        return build_module_actions(module_store.get_module_detail(module_id))
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "module_not_found", "message": "Module was not found"},
+        ) from None
+
+
+@app.get("/api/modules/{module_id}/capabilities")
+def get_module_capabilities(module_id: str) -> dict[str, Any]:
+    try:
+        return capability_cache.get_capabilities(
+            module_store,
+            module_id,
+            _current_registry().list_functions(),
+            _all_workflow_summaries(),
+        )
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "module_not_found", "message": "Module was not found"},
+        ) from None
+
+
+@app.post("/api/modules/{module_id}/capabilities/refresh")
+def refresh_module_capabilities(module_id: str) -> dict[str, Any]:
+    try:
+        return capability_cache.get_capabilities(
+            module_store,
+            module_id,
+            _current_registry().list_functions(),
+            _all_workflow_summaries(),
+            refresh=True,
+        )
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "module_not_found", "message": "Module was not found"},
+        ) from None
 
 
 @app.post("/api/modules")
@@ -1628,6 +1679,13 @@ def _current_registry(exclude_module_id: str | None = None) -> FunctionRegistry:
     for fn in module_store.load_function_instances(exclude_module_id=exclude_module_id):
         registry.register(fn)
     return registry
+
+
+def _all_workflow_summaries() -> list[dict[str, Any]]:
+    return [
+        *workflow_store.list_workflows()["workflows"],
+        *module_store.list_workflows()["workflows"],
+    ]
 
 
 def _safe_upload_filename(filename: str) -> str:

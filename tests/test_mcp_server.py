@@ -5,12 +5,18 @@ EXPECTED_TOOLS = {
     "upload_sample",
     "upload_samples",
     "create_target_session",
+    "list_sessions",
+    "get_session",
     "list_functions",
+    "get_platform_actions",
     "save_custom_workflow",
     "list_custom_workflows",
     "list_modules",
     "get_module_template",
     "get_module_detail",
+    "get_module_actions",
+    "get_module_capabilities",
+    "refresh_module_capabilities",
     "get_module_skill",
     "get_module_ui",
     "get_module_knowledge",
@@ -103,12 +109,22 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
         "example target",
         "authorized test target",
     )["path"] == "/api/sessions/target"
+    assert server.list_sessions()["path"] == "/api/sessions"
+    assert server.get_session("session")["path"] == "/api/sessions/session"
     assert server.list_functions()["path"] == "/api/functions"
+    assert server.get_platform_actions()["path"] == "/api/platform/actions"
     assert server.save_custom_workflow("basic", {"name": "basic", "steps": []})["ok"] is True
     assert server.list_custom_workflows()["path"] == "/api/workflows"
     assert server.list_modules()["path"] == "/api/modules"
     assert server.get_module_template()["path"] == "/api/modules/template"
     assert server.get_module_detail("reverse")["path"] == "/api/modules/reverse"
+    assert server.get_module_actions("reverse")["path"] == "/api/modules/reverse/actions"
+    assert server.get_module_capabilities("reverse")["path"] == (
+        "/api/modules/reverse/capabilities"
+    )
+    assert server.refresh_module_capabilities("reverse")["path"] == (
+        "/api/modules/reverse/capabilities/refresh"
+    )
     assert server.get_module_skill("reverse")["path"] == "/api/modules/reverse/skill"
     assert server.get_module_ui("reverse")["path"] == "/api/modules/reverse/ui"
     assert server.get_module_knowledge("reverse", "attack_techniques")["path"] == (
@@ -167,12 +183,18 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
                 "notes": "authorized test target",
             },
         ),
+        ("GET", "/api/sessions", None),
+        ("GET", "/api/sessions/session", None),
         ("GET", "/api/functions", None),
+        ("GET", "/api/platform/actions", None),
         ("POST", "/api/workflows", {"name": "basic", "workflow": {"name": "basic", "steps": []}}),
         ("GET", "/api/workflows", None),
         ("GET", "/api/modules", None),
         ("GET", "/api/modules/template", None),
         ("GET", "/api/modules/reverse", None),
+        ("GET", "/api/modules/reverse/actions", None),
+        ("GET", "/api/modules/reverse/capabilities", None),
+        ("POST", "/api/modules/reverse/capabilities/refresh", None),
         ("GET", "/api/modules/reverse/skill", None),
         ("GET", "/api/modules/reverse/ui", None),
         ("GET", "/api/modules/reverse/knowledge/attack_techniques", None),

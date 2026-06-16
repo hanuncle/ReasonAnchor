@@ -102,8 +102,23 @@ def create_target_session(
 
 
 @mcp.tool()
+def list_sessions() -> dict[str, Any]:
+    return _request_json("GET", "/api/sessions")
+
+
+@mcp.tool()
+def get_session(session_id: str) -> dict[str, Any]:
+    return _request_json("GET", f"/api/sessions/{_quote(session_id)}")
+
+
+@mcp.tool()
 def list_functions() -> dict[str, Any]:
     return _request_json("GET", "/api/functions")
+
+
+@mcp.tool()
+def get_platform_actions() -> dict[str, Any]:
+    return _request_json("GET", "/api/platform/actions")
 
 
 @mcp.tool()
@@ -129,6 +144,21 @@ def get_module_template() -> dict[str, Any]:
 @mcp.tool()
 def get_module_detail(module_id: str) -> dict[str, Any]:
     return _request_json("GET", f"/api/modules/{_quote(module_id)}")
+
+
+@mcp.tool()
+def get_module_actions(module_id: str) -> dict[str, Any]:
+    return _request_json("GET", f"/api/modules/{_quote(module_id)}/actions")
+
+
+@mcp.tool()
+def get_module_capabilities(module_id: str) -> dict[str, Any]:
+    return _request_json("GET", f"/api/modules/{_quote(module_id)}/capabilities")
+
+
+@mcp.tool()
+def refresh_module_capabilities(module_id: str) -> dict[str, Any]:
+    return _request_json("POST", f"/api/modules/{_quote(module_id)}/capabilities/refresh")
 
 
 @mcp.tool()
@@ -432,6 +462,10 @@ def get_platform_skill() -> dict[str, Any]:
             "list_modules_tool": "list_modules",
             "module_skill_tool": "get_module_skill",
             "module_detail_tool": "get_module_detail",
+            "platform_actions_tool": "get_platform_actions",
+            "module_actions_tool": "get_module_actions",
+            "module_capabilities_tool": "get_module_capabilities",
+            "module_capabilities_refresh_tool": "refresh_module_capabilities",
             "module_template_tool": "get_module_template",
             "create_module_tool": "create_module",
             "module_ui_tool": "get_module_ui",

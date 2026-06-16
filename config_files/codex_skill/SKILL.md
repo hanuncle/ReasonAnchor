@@ -9,24 +9,26 @@ Use the platform for local security analysis workflows. Do not execute uploaded 
 ## Required Flow
 
 1. Call `get_platform_skill`.
-2. Call `list_modules`.
-3. Ask the user to choose a module unless the user already named one.
-4. Call `get_module_skill(module_id)` only for the selected module.
-5. Use `get_module_detail(module_id)` when manifest details, functions, workflows, config fields, or validation status are needed.
-6. Before analysis work starts, ask whether module code self-iteration is allowed for this task.
-7. Upload a sample with `upload_sample` or `upload_samples`, create a target session with `create_target_session`, or reuse the current session.
-8. Call `list_functions` and `list_custom_workflows`.
-9. Choose an existing workflow or create one with `save_custom_workflow`, then apply it with `select_custom_workflow`.
-10. Run it with `run_workflow`.
+2. Call `get_platform_actions` when the platform-level menu or startup options are needed.
+3. Call `list_modules`.
+4. Ask the user to choose a module unless the user already named one.
+5. Call `get_module_actions(module_id)` and `get_module_capabilities(module_id)` when the selected module menu or cached capability summary is needed.
+6. Call `get_module_skill(module_id)` only for the selected module.
+7. Use `get_module_detail(module_id)` when manifest details, functions, workflows, config fields, or validation status are needed.
+8. Before analysis work starts, ask whether module code self-iteration is allowed for this task.
+9. Upload a sample with `upload_sample` or `upload_samples`, create a target session with `create_target_session`, or reuse an existing session from `list_sessions` / `get_session`.
+10. Call `list_functions` and `list_custom_workflows`.
+11. Choose an existing workflow or create one with `save_custom_workflow`, then apply it with `select_custom_workflow`.
+12. Run it with `run_workflow`.
     - For a short user-approved multi-session batch, use `run_batch_workflow` and review the saved sample-set report.
     - For long-running batches, VM dynamic analysis, or any workflow likely to exceed MCP tool timeouts, use `submit_batch_workflow_job`, poll with `get_batch_job`, and review the saved report when the job completes.
     - Cross-sample reports are taxonomy-driven: use `sample_facts`, `behavior_matrix`, `attack_matrix`, `validation_status`, and `knowledge_links` before writing conclusions.
-11. Analyze `ai_output` first.
-12. If refined output is insufficient, call `get_raw_output_map` before `get_raw_output_by_id`, then fetch only the needed `raw_output_id`.
-13. Use `run_function` for one additional registered function result when needed.
-14. After analysis, produce the final AI summary according to the selected module's `final_result_schema` and save it with `save_session_result`.
-15. After the final summary is saved, ask whether to perform module code self-iteration if useful improvements were found.
-16. Iterate only selected-module files after the user approves iteration.
+13. Analyze `ai_output` first.
+14. If refined output is insufficient, call `get_raw_output_map` before `get_raw_output_by_id`, then fetch only the needed `raw_output_id`.
+15. Use `run_function` for one additional registered function result when needed.
+16. After analysis, produce the final AI summary according to the selected module's `final_result_schema` and save it with `save_session_result`.
+17. After the final summary is saved, ask whether to perform module code self-iteration if useful improvements were found.
+18. Iterate only selected-module files after the user approves iteration.
 
 When returned data is noisy, extract useful information first, then analyze it.
 
@@ -59,10 +61,14 @@ Before writing any new file, inspect the target module directory and nearby file
 | Tool | Role |
 | --- | --- |
 | `get_platform_skill` | Read this platform skill and the machine-readable platform playbook. |
+| `get_platform_actions` | Return the platform startup menu actions. |
 | `list_modules` | List available modules before choosing module context. |
 | `get_module_template` | Return the default module directory and manifest format. |
 | `get_module_skill` | Load only the selected module's skill, playbook, and final result schema. |
 | `get_module_detail` | Inspect one module's manifest, functions, workflows, config fields, and validation. |
+| `get_module_actions` | Return the selected module's generic platform-owned menu actions. |
+| `get_module_capabilities` | Return the selected module's cached, structured capability summary. |
+| `refresh_module_capabilities` | Force regeneration of a selected module capability summary cache. |
 | `get_module_ui` | Inspect one module's frontend page declarations. |
 | `get_module_knowledge` | Fetch one declared module knowledge asset by `knowledge_type`. |
 | `create_module` | Create a default-format module skeleton. |
@@ -75,6 +81,8 @@ Before writing any new file, inspect the target module directory and nearby file
 | `upload_sample` | Upload one local sample and create a session. |
 | `upload_samples` | Upload multiple local samples and create sessions. |
 | `create_target_session` | Create a non-sample session for target-based modules such as recon or vulnerability scanning. |
+| `list_sessions` | List persisted sessions before resuming work. |
+| `get_session` | Fetch one persisted session by id. |
 | `list_functions` | List all registered platform and module functions. |
 | `list_custom_workflows` | List saved platform and module workflow templates. |
 | `save_custom_workflow` | Save a new workflow template. |

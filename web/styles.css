@@ -145,6 +145,43 @@ textarea {
   min-width: min(420px, 100%);
 }
 
+.action-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.action-button {
+  display: grid;
+  gap: 4px;
+  min-height: 76px;
+  padding: 10px;
+  text-align: left;
+}
+
+.action-button span,
+.capability-header span {
+  color: #62665f;
+  font-size: 12px;
+}
+
+.capability-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.capability-header,
+.capability-section {
+  border-top: 1px solid #d8d8d2;
+  padding-top: 10px;
+}
+
+.capability-section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .details {
   display: grid;
   grid-template-columns: 130px minmax(0, 1fr);
