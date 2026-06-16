@@ -446,11 +446,60 @@ class SessionStore:
     def get_raw_output(self, session_id: str) -> dict[str, Any]:
         path = self._raw_output_file(session_id)
         if not path.is_file():
+            return self._raw_output_from_session_summary(session_id)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return {"session_id": session_id, "items": []}
+        items = data.get("items")
+        if isinstance(items, list):
             return {
-                "session_id": session_id,
-                "items": [],
+                "session_id": str(data.get("session_id") or session_id),
+                "items": items,
             }
-        return json.loads(path.read_text(encoding="utf-8"))
+        return {
+            "session_id": str(data.get("session_id") or session_id),
+            "items": [],
+        }
+
+    def _raw_output_from_session_summary(self, session_id: str) -> dict[str, Any]:
+        try:
+            session = self.get_session(session_id)
+        except FileNotFoundError:
+            return {"session_id": session_id, "items": []}
+        raw_outputs = session.get("raw_outputs")
+        if not isinstance(raw_outputs, dict):
+            return {"session_id": session_id, "items": []}
+
+        items: list[dict[str, Any]] = []
+        for index, (result_key, result) in enumerate(raw_outputs.items(), start=1):
+            if isinstance(result, dict):
+                output = dict(result)
+            else:
+                output = {
+                    "result_key": str(result_key),
+                    "status": "",
+                    "data": result,
+                }
+            output.setdefault("result_key", str(result_key))
+            raw_result_key = str(output.get("result_key") or result_key or "output")
+            function_id = str(output.get("function_id") or "")
+            items.append(
+                {
+                    "raw_output_id": self._raw_output_id(index, raw_result_key),
+                    "index": index,
+                    "function_id": function_id,
+                    "function_name": str(
+                        output.get("function_name") or function_id or result_key
+                    ),
+                    "result_key": raw_result_key,
+                    "status": str(output.get("status") or ""),
+                    "output": output,
+                }
+            )
+        return {
+            "session_id": session_id,
+            "items": items,
+        }
 
     @staticmethod
     def _now() -> str:

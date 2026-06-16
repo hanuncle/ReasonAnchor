@@ -12,6 +12,7 @@ document.querySelector("#refresh-sessions-button").addEventListener("click", loa
 document.querySelector("#load-raw-map-button").addEventListener("click", loadRawMap);
 document.querySelector("#load-raw-item-button").addEventListener("click", loadRawItem);
 document.querySelector("#load-ai-output-button").addEventListener("click", loadAiOutput);
+sessionSelect.addEventListener("change", handleSessionChange);
 
 init();
 
@@ -32,12 +33,32 @@ async function init() {
 }
 
 async function loadSessions() {
+  const previousSessionId = sessionSelect.value;
   const data = await request("/api/sessions");
   sessions = data.sessions || [];
   renderSelect(sessionSelect, sessions, "暂无 session", (session) => ({
     value: session.session_id,
     label: `${sessionLabel(session)} | ${session.session_id}`,
   }));
+  if (sessions.some((session) => session.session_id === previousSessionId)) {
+    sessionSelect.value = previousSessionId;
+  }
+}
+
+async function handleSessionChange() {
+  rawMapOutput.textContent = "{}";
+  rawDetailOutput.textContent = "{}";
+  aiOutput.textContent = "{}";
+  renderSelect(rawOutputSelect, [], "暂无 raw_output_id", () => ({
+    value: "",
+    label: "",
+  }));
+  if (!sessionSelect.value) {
+    setStatus("请先选择 session。");
+    return;
+  }
+  await loadRawMap();
+  await loadAiOutput();
 }
 
 async function loadRawMap() {
