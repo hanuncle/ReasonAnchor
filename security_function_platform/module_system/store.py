@@ -523,7 +523,14 @@ class ModuleStore:
             module_root = self._module_root(manifest)
             for relative_path in manifest.get("config_fields", []):
                 path = self._safe_join(module_root, str(relative_path))
-                fields.extend(self._read_config_fields(path))
+                fields.extend(
+                    {
+                        **field,
+                        "module_id": manifest["module_id"],
+                        "module_name": str(manifest.get("name") or manifest["module_id"]),
+                    }
+                    for field in self._read_config_fields(path)
+                )
         return fields
 
     def loaded_skill_context(self) -> list[dict[str, Any]]:

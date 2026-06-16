@@ -50,7 +50,7 @@ except ImportError:
 
 
 mcp = FastMCP(
-    "security-function-platform: before analyzing a sample, call get_platform_skill first"
+    "security-function-platform: before analyzing a sample or target, call get_platform_skill first"
 )
 
 
@@ -76,6 +76,29 @@ def upload_samples(file_paths: list[str]) -> dict[str, Any]:
             },
         }
     return _upload_files("/api/sessions/upload-multiple", paths)
+
+
+@mcp.tool()
+def create_target_session(
+    targets: list[str],
+    authorized_scope: list[str],
+    module_id: str = "",
+    exclude: list[str] | None = None,
+    label: str = "",
+    notes: str = "",
+) -> dict[str, Any]:
+    return _request_json(
+        "POST",
+        "/api/sessions/target",
+        {
+            "targets": targets,
+            "authorized_scope": authorized_scope,
+            "exclude": exclude or [],
+            "module_id": module_id,
+            "label": label,
+            "notes": notes,
+        },
+    )
 
 
 @mcp.tool()

@@ -53,6 +53,10 @@ def test_secret_config_value_is_saved_but_redacted_and_deletable(tmp_path, monke
         "path": "virustotal.api_key",
         "label": "VirusTotal API key",
         "secret": True,
+        "function_id": "ti.virustotal.hash_lookup",
+        "module_id": "reverse",
+        "module_name": "Reverse Analysis Module",
+        "namespace": "virustotal",
         "configured": True,
         "value": None,
     }

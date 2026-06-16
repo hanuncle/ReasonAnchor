@@ -1,0 +1,93 @@
+{
+  "module_id": "recon_scan",
+  "name": "recon_scan_ai_gated_recon_playbook",
+  "requires_authorization": true,
+  "active_scan": true,
+  "authorization_confirmation_token": "I_CONFIRM_AUTHORIZED_ACTIVE_RECON",
+  "workflow_strategy": {
+    "primary_workflow": "module:recon_scan:recon_basic_collection_flow",
+    "safe_prepare_workflow": "module:recon_scan:recon_scope_prepare_flow",
+    "loop_rule": "Run workflow, analyze ai_output, choose one next function, call run_function, re-summarize, refresh next_step_options, repeat, then save final_result."
+  },
+  "safe_default_functions": [
+    "recon.scope_validate",
+    "recon.target_normalize",
+    "recon.attack_surface_summarize",
+    "recon.next_step_options",
+    "recon.report_generate"
+  ],
+  "workflow_functions": [
+    "recon.scope_validate",
+    "recon.target_normalize",
+    "recon.dns_probe",
+    "recon.http_probe",
+    "recon.port_scan",
+    "recon.attack_surface_summarize",
+    "recon.next_step_options",
+    "recon.report_generate"
+  ],
+  "single_step_ai_gated_functions": [
+    "recon.service_identify",
+    "recon.web_light_discover",
+    "recon.vulnerability_candidate_scan"
+  ],
+  "external_functions": [
+    "recon.dns_probe",
+    "recon.http_probe",
+    "recon.port_scan",
+    "recon.service_identify",
+    "recon.web_light_discover",
+    "recon.vulnerability_candidate_scan"
+  ],
+  "candidate_only_functions": [
+    "recon.service_identify",
+    "recon.web_light_discover",
+    "recon.vulnerability_candidate_scan",
+    "recon.attack_surface_summarize",
+    "recon.next_step_options",
+    "recon.report_generate"
+  ],
+  "requires_prior_result": {
+    "recon.target_normalize": ["recon_scope"],
+    "recon.dns_probe": ["recon_scope", "recon_targets"],
+    "recon.http_probe": ["recon_scope", "recon_targets"],
+    "recon.port_scan": ["recon_scope", "recon_targets"],
+    "recon.service_identify": ["recon_scope", "recon_targets", "recon_ports"],
+    "recon.web_light_discover": ["recon_scope", "recon_targets", "recon_http"],
+    "recon.vulnerability_candidate_scan": ["recon_scope", "recon_targets", "recon_http"],
+    "recon.attack_surface_summarize": ["recon_scope", "recon_targets"],
+    "recon.next_step_options": ["recon_attack_surface"],
+    "recon.report_generate": ["recon_attack_surface"]
+  },
+  "decision_rules": [
+    {
+      "condition": "targets are missing",
+      "action": "stop_and_ask_for_targets"
+    },
+    {
+      "condition": "authorized_scope is missing or target is out of scope",
+      "action": "stop_and_ask_for_scope_confirmation"
+    },
+    {
+      "condition": "active workflow or active function is requested without exact confirmation token",
+      "action": "return_blocked_result_and_request_authorization_confirmation"
+    },
+    {
+      "condition": "basic workflow completed with live ports but no service details",
+      "action": "consider_run_function_recon.service_identify"
+    },
+    {
+      "condition": "basic workflow completed with live web endpoints",
+      "action": "consider_run_function_recon.web_light_discover_then_recon.vulnerability_candidate_scan"
+    },
+    {
+      "condition": "candidate findings exist",
+      "action": "mark_candidate_only_and_require_manual_verification_before_final_vulnerability_claim"
+    }
+  ],
+  "finalization": {
+    "generate": "run_function recon.report_generate",
+    "save": "save_session_result with recon_final_report.data.final_result",
+    "frontend_mapping": "Saved session result is displayed by result page; scan_workflow_matrix is displayed through module UI knowledge table."
+  }
+}

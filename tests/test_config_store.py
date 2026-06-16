@@ -49,5 +49,8 @@ def test_get_redacted_config_hides_secret_values(tmp_path) -> None:
 
     assert api_key["configured"] is True
     assert api_key["value"] is None
+    assert api_key["module_id"] == "reverse"
+    assert api_key["module_name"] == "Reverse Analysis Module"
+    assert api_key["namespace"] == "virustotal"
     assert rules_dir["configured"] is True
     assert rules_dir["value"] == r"E:\rules\yara"

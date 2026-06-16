@@ -15,58 +15,13 @@ artifacts/
 *.sqlite
 *.sqlite3
 
-# Local modules are managed separately from the platform repository
-modules/
-!modules/
+# Local modules are managed separately from the platform repository by default.
+# The built-in recon scan module is published with the platform.
 modules/*
-!modules/reverse/
-modules/reverse/*
-!modules/reverse/module.json
-!modules/reverse/functions/
-modules/reverse/functions/*
-!modules/reverse/functions/attack_map_static.py
-!modules/reverse/functions/behavior_map_dynamic.py
-!modules/reverse/functions/behavior_map_static.py
-!modules/reverse/functions/behavior_taxonomy.py
-!modules/reverse/knowledge/
-modules/reverse/knowledge/*
-!modules/reverse/knowledge/behavior_taxonomy.json
-!modules/reverse/knowledge/attack/
-modules/reverse/knowledge/attack/*
-!modules/reverse/knowledge/attack/techniques.json
-!modules/reverse/config_files/
-modules/reverse/config_files/*
-!modules/reverse/config_files/validation/
-modules/reverse/config_files/validation/*
-!modules/reverse/config_files/validation/dynamic_telemetry_schema.json
-!modules/reverse/config_files/validation/validation_scenarios_schema.json
-!modules/reverse/config_files/validation/validation_scenarios.json
-!modules/reverse/config_files/validation_samples/
-modules/reverse/config_files/validation_samples/*
-!modules/reverse/config_files/validation_samples/samples_manifest.json
-!modules/reverse/skill/
-modules/reverse/skill/*
-!modules/reverse/skill/KNOWLEDGE_ENRICHMENT_SKILL.md
-!modules/reverse/skill/SKILL.md
-!modules/reverse/skill/playbook.json
-!modules/vuln_scan/
-modules/vuln_scan/*
-!modules/vuln_scan/module.json
-!modules/vuln_scan/knowledge/
-modules/vuln_scan/knowledge/*
-!modules/vuln_scan/knowledge/vulnerability/
-modules/vuln_scan/knowledge/vulnerability/*
-!modules/vuln_scan/knowledge/vulnerability/cwe.json
-!modules/reverse/**/
-!modules/reverse/**/*.json
-!modules/reverse/**/*.md
-!modules/reverse/**/*.py
-!modules/reverse/**/*.ps1
-!modules/vuln_scan/**/
-!modules/vuln_scan/**/*.json
-!modules/vuln_scan/**/*.md
-!modules/vuln_scan/**/*.py
-!modules/vuln_scan/.gitkeep
+!modules/recon_scan/
+!modules/recon_scan/**
+modules/recon_scan/**/__pycache__/
+modules/recon_scan/**/*.py[cod]
 
 # Local-only agent and secret configuration
 .codex/

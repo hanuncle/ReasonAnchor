@@ -34,6 +34,7 @@ class SessionStore:
 
         session = {
             "session_id": session_id,
+            "session_type": "sample",
             "created_at": now,
             "updated_at": now,
             "sample": {
@@ -41,6 +42,58 @@ class SessionStore:
                 "stored_path": str(stored_path),
                 "size": len(content),
                 "uploaded_at": now,
+            },
+            "workflow": None,
+            "summary": {
+                "status": "created",
+                "functions_run": 0,
+                "result_keys": [],
+                "error_count": 0,
+            },
+            "raw_outputs": {},
+        }
+        self._write_session(session)
+        return session
+
+    def create_target_session(
+        self,
+        targets: Any,
+        authorized_scope: Any,
+        exclude: Any = None,
+        module_id: str = "",
+        label: str = "",
+        notes: str = "",
+    ) -> dict[str, Any]:
+        target_values = self._string_list(targets)
+        scope_values = self._string_list(authorized_scope)
+        if not target_values:
+            raise ValueError("missing_targets")
+        if not scope_values:
+            raise ValueError("missing_authorized_scope")
+
+        session_id = str(uuid.uuid4())
+        now = self._now()
+        display_name = label.strip() or target_values[0]
+        safe_filename = self._safe_filename(f"target-{display_name}.json")
+        session = {
+            "session_id": session_id,
+            "session_type": "target",
+            "created_at": now,
+            "updated_at": now,
+            "sample": {
+                "filename": safe_filename,
+                "stored_path": "",
+                "size": 0,
+                "uploaded_at": now,
+            },
+            "target": {
+                "label": display_name,
+                "targets": target_values,
+                "authorized_scope": scope_values,
+                "exclude": self._string_list(exclude),
+                "module_id": module_id.strip(),
+                "notes": notes.strip(),
+                "created_at": now,
             },
             "workflow": None,
             "summary": {
@@ -78,9 +131,11 @@ class SessionStore:
             sessions.append(
                 {
                     "session_id": str(session.get("session_id") or session_file.parent.name),
+                    "session_type": str(session.get("session_type") or "sample"),
                     "created_at": str(session.get("created_at") or ""),
                     "updated_at": str(session.get("updated_at") or ""),
                     "sample": session.get("sample") if isinstance(session.get("sample"), dict) else {},
+                    "target": session.get("target") if isinstance(session.get("target"), dict) else {},
                     "summary": (
                         session.get("summary") if isinstance(session.get("summary"), dict) else {}
                     ),

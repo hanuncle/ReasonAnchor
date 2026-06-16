@@ -47,7 +47,8 @@
     ],
     "ensure_session": [
       "upload_sample",
-      "upload_samples"
+      "upload_samples",
+      "create_target_session"
     ],
     "inspect_functions": [
       "list_functions"
@@ -156,6 +157,29 @@
       ],
       "do_not_use_when": [
         "Only one sample is provided."
+      ]
+    },
+    "create_target_session": {
+      "purpose": "Create a non-sample session for target-based modules such as recon or vulnerability scanning.",
+      "use_when": [
+        "The selected module analyzes authorized targets instead of uploaded files.",
+        "Targets and authorized scope are known and no session exists."
+      ],
+      "inputs": [
+        "targets",
+        "authorized_scope",
+        "module_id",
+        "exclude",
+        "label",
+        "notes"
+      ],
+      "returns": [
+        "session_id",
+        "target metadata"
+      ],
+      "do_not_use_when": [
+        "The module needs uploaded sample bytes.",
+        "Targets or authorized scope are ambiguous."
       ]
     },
     "list_functions": {

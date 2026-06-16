@@ -10,6 +10,7 @@ MCP_TOOL_NAMES = [
     "get_platform_skill",
     "upload_sample",
     "upload_samples",
+    "create_target_session",
     "list_functions",
     "save_custom_workflow",
     "list_custom_workflows",
@@ -92,6 +93,7 @@ def test_skill_mentions_required_tools_and_rules() -> None:
 
     for expected in [
         "upload_sample",
+        "create_target_session",
         "run_workflow",
         "get_ai_output",
         "run_function",

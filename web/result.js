@@ -20,13 +20,18 @@ async function loadResult() {
     return;
   }
 
-  renderFile(result.file || {});
+  renderFile(result.file || {}, result.target || {});
   renderSummary(result.summary || {});
-  renderBehaviors(result.behaviors || []);
+  if (result.assets || result.candidate_findings || result.target_scope) {
+    renderReconResult(result);
+  } else {
+    renderBehaviors(result.behaviors || []);
+  }
 }
 
-function renderFile(file) {
+function renderFile(file, target) {
   fileDetails.innerHTML = `
+    <dt>target</dt><dd>${escapeHtml(target.label || (target.targets || [])[0] || "")}</dd>
     <dt>filename</dt><dd>${escapeHtml(file.filename || "")}</dd>
     <dt>size</dt><dd>${escapeHtml(file.size ?? "")}</dd>
     <dt>sha256</dt><dd>${escapeHtml(file.sha256 || "")}</dd>
@@ -40,6 +45,63 @@ function renderSummary(summary) {
     <dt>risk_level</dt><dd>${escapeHtml(summary.risk_level || "unknown")}</dd>
     <dt>limitations</dt><dd>${escapeHtml((summary.limitations || []).join(", "))}</dd>
   `;
+}
+
+function renderReconResult(result) {
+  const assets = result.assets || {};
+  const targetScope = result.target_scope || {};
+  behaviorList.replaceChildren();
+  const section = document.createElement("article");
+  section.className = "behavior-item";
+  section.innerHTML = `
+    <h3>Recon attack surface</h3>
+    <dl class="details">
+      <dt>authorized</dt><dd>${escapeHtml(targetScope.authorized ?? "")}</dd>
+      <dt>scope</dt><dd>${escapeHtml(targetScope.scope_summary || "")}</dd>
+      <dt>domains</dt><dd>${escapeHtml((assets.domains || []).join(", "))}</dd>
+      <dt>hosts</dt><dd>${escapeHtml((assets.hosts || []).join(", "))}</dd>
+      <dt>web endpoints</dt><dd>${escapeHtml((assets.web_endpoints || []).map((item) => item.url || "").filter(Boolean).join(", "))}</dd>
+      <dt>urls</dt><dd>${escapeHtml((assets.urls || []).map((item) => item.url || "").filter(Boolean).join(", "))}</dd>
+      <dt>services</dt><dd>${escapeHtml((assets.services || []).map((item) => `${item.host || ""}:${item.port || ""} ${item.service || ""}`.trim()).join(", "))}</dd>
+    </dl>
+  `;
+  behaviorList.append(section);
+
+  const findings = result.candidate_findings || [];
+  if (!findings.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No candidate findings.";
+    behaviorList.append(empty);
+  }
+  findings.forEach((finding) => {
+    const article = document.createElement("article");
+    article.className = "behavior-item";
+    article.innerHTML = `
+      <h3>${escapeHtml(finding.title || "Candidate finding")}</h3>
+      <dl class="details">
+        <dt>severity</dt><dd>${escapeHtml(finding.severity || "unknown")}</dd>
+        <dt>asset</dt><dd>${escapeHtml(finding.affected_asset || "")}</dd>
+        <dt>evidence</dt><dd>${escapeHtml(finding.evidence?.summary || "")}</dd>
+        <dt>sources</dt><dd>${escapeHtml(formatSources(finding.evidence?.sources || []))}</dd>
+        <dt>verification</dt><dd>${escapeHtml(finding.verification || "unverified")}</dd>
+        <dt>fix</dt><dd>${escapeHtml(finding.recommended_fix || "")}</dd>
+      </dl>
+    `;
+    behaviorList.append(article);
+  });
+
+  (result.recommended_next_steps || []).forEach((step) => {
+    const article = document.createElement("article");
+    article.className = "behavior-item";
+    article.innerHTML = `
+      <h3>${escapeHtml(step.action || "Recommended next step")}</h3>
+      <dl class="details">
+        <dt>reason</dt><dd>${escapeHtml(step.reason || "")}</dd>
+        <dt>confirmation</dt><dd>${escapeHtml(step.requires_human_confirmation ?? "")}</dd>
+      </dl>
+    `;
+    behaviorList.append(article);
+  });
 }
 
 function renderBehaviors(behaviors) {

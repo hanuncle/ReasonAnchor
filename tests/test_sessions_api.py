@@ -97,6 +97,77 @@ def test_upload_multiple_samples_creates_one_session_per_file(tmp_path, monkeypa
         assert Path(session["sample"]["stored_path"]).is_file()
 
 
+def test_create_target_session_persists_scope_without_sample_file(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(main, "store", SessionStore(tmp_path / "data" / "sessions"))
+    client = TestClient(main.app)
+
+    response = client.post(
+        "/api/sessions/target",
+        json={
+            "targets": ["https://www.example.test"],
+            "authorized_scope": ["example.test", "*.example.test"],
+            "exclude": ["admin.example.test"],
+            "module_id": "recon_scan",
+            "label": "Example recon target",
+            "notes": "authorized CTF target",
+        },
+    )
+
+    assert response.status_code == 200
+    session = response.json()
+    assert session["session_type"] == "target"
+    assert session["sample"]["stored_path"] == ""
+    assert session["sample"]["size"] == 0
+    assert session["target"]["targets"] == ["https://www.example.test"]
+    assert session["target"]["authorized_scope"] == ["example.test", "*.example.test"]
+    assert session["target"]["exclude"] == ["admin.example.test"]
+    assert session["target"]["module_id"] == "recon_scan"
+
+    list_response = client.get("/api/sessions")
+    assert list_response.status_code == 200
+    listed = list_response.json()["sessions"][0]
+    assert listed["session_type"] == "target"
+    assert listed["target"]["label"] == "Example recon target"
+
+
+def test_target_session_context_feeds_recon_workflow_scope(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(main, "store", SessionStore(tmp_path / "data" / "sessions"))
+    client = TestClient(main.app)
+
+    session = client.post(
+        "/api/sessions/target",
+        json={
+            "targets": ["https://www.example.test"],
+            "authorized_scope": ["example.test", "*.example.test"],
+            "module_id": "recon_scan",
+            "label": "Example recon target",
+        },
+    ).json()
+    workflow_response = client.post(
+        f"/api/sessions/{session['session_id']}/workflow",
+        json={
+            "name": "target_scope_context",
+            "steps": [
+                {
+                    "function_id": "recon.scope_validate",
+                    "params": {"active_scan": False, "targets": [], "authorized_scope": []},
+                },
+                {"function_id": "recon.target_normalize", "params": {}},
+            ],
+        },
+    )
+    assert workflow_response.status_code == 200
+
+    run_response = client.post(f"/api/sessions/{session['session_id']}/run")
+
+    assert run_response.status_code == 200
+    body = run_response.json()
+    assert body["summary"]["status"] == "completed"
+    assert body["raw_outputs"]["recon_scope"]["status"] == "success"
+    assert body["raw_outputs"]["recon_scope"]["data"]["authorized"] is True
+    assert body["raw_outputs"]["recon_targets"]["data"]["hosts"] == ["www.example.test"]
+
+
 def test_batch_run_creates_cross_sample_report_file(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(main, "store", SessionStore(tmp_path / "data" / "sessions"))
     client = TestClient(main.app)

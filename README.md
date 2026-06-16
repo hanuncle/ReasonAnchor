@@ -24,6 +24,18 @@ flowchart LR
 
 ## Product Positioning
 
+AI-orchestrated execution loop:
+
+```text
+workflow execution
+-> workflow results return to AI
+-> AI plans and executes the next step
+-> function result returns to AI
+-> AI repeats the planning/execution loop
+-> AI writes the final conclusion
+-> final conclusion is saved and returned to the frontend
+```
+
 This project is not a general low-code chatbot builder. It is a local capability runtime for AI agents.
 
 Core goals:
@@ -35,6 +47,7 @@ Core goals:
 - **Controlled code iteration**: after user approval, useful code, raw sorters, schemas, and knowledge can be written back into the selected module.
 - **Module-owned frontend pages**: modules can declare knowledge-backed pages in `module.json.ui.pages`, while rendering stays inside platform-owned frontend components.
 - **Result persistence**: raw outputs, AI-facing outputs, and final summaries are saved under the current session.
+- **Built-in reconnaissance module**: see [Recon Scan Module](modules/recon_scan/README.md) for the active/passive target reconnaissance module design.
 
 ## Install And Run
 
@@ -103,7 +116,7 @@ A complete analysis usually follows this order:
 2. Codex calls `list_modules` to list available modules.
 3. Codex asks the user to choose a module, unless the user already named one.
 4. Codex calls `get_module_skill(module_id)` to load only the selected module's Skill, playbook, and final result schema.
-5. Codex uploads a sample or selects an existing session.
+5. Codex uploads a sample, creates a target session, or selects an existing session.
 6. Codex selects a workflow, or directly runs one function.
 7. Codex analyzes `ai_output` first.
 8. When evidence detail is needed, Codex calls `get_raw_output_map` first, then fetches only the necessary `raw_output_id`.
@@ -393,6 +406,7 @@ Sessions and workflows:
 
 - `upload_sample`
 - `upload_samples`
+- `create_target_session`
 - `list_functions`
 - `list_custom_workflows`
 - `save_custom_workflow`

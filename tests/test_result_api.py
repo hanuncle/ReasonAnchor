@@ -101,6 +101,31 @@ def test_result_page_fetches_saved_session_result() -> None:
     assert "/api/sessions/${encodeURIComponent(sessionId)}/result" in result_js
 
 
+def test_analysis_workspace_does_not_auto_load_first_sample_set_report() -> None:
+    analysis_js = Path("web/analysis.js").read_text(encoding="utf-8")
+
+    assert "Sample-set reports loaded. Select one to view." in analysis_js
+    assert "No sample-set reports." in analysis_js
+    assert "const selected = chooseDefaultReport(sampleSetReports)" not in analysis_js
+
+
+def test_analysis_workspace_can_save_recon_attack_surface_result() -> None:
+    analysis_js = Path("web/analysis.js").read_text(encoding="utf-8")
+
+    assert "maybeSaveReconFinalResult(currentSession)" in analysis_js
+    assert "recon_attack_surface" in analysis_js
+    assert "/raw-output-map" in analysis_js
+    assert "/api/sessions/${encodeURIComponent(session.session_id)}/result" in analysis_js
+
+
+def test_raw_data_page_autoloads_session_outputs_from_query_param() -> None:
+    raw_data_js = Path("web/raw-data.js").read_text(encoding="utf-8")
+
+    assert "await loadRawMap();" in raw_data_js
+    assert "await loadAiOutput();" in raw_data_js
+    assert "await loadRawItem();" in raw_data_js
+
+
 def test_result_api_missing_session_returns_404(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(main, "store", SessionStore(tmp_path / "data" / "sessions"))
     client = TestClient(main.app)

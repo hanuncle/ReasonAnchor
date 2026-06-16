@@ -10,6 +10,11 @@ let activeBatchJobId = "";
 let batchJobPollTimer = null;
 
 const sampleFile = document.querySelector("#sample-file");
+const targetValues = document.querySelector("#target-values");
+const targetScope = document.querySelector("#target-scope");
+const targetExclude = document.querySelector("#target-exclude");
+const targetLabel = document.querySelector("#target-label");
+const targetNotes = document.querySelector("#target-notes");
 const sessionSelect = document.querySelector("#session-select");
 const workflowSelect = document.querySelector("#workflow-select");
 const sessionDetails = document.querySelector("#session-details");
@@ -21,6 +26,7 @@ const reportSelect = document.querySelector("#report-select");
 const reportList = document.querySelector("#report-list");
 
 document.querySelector("#upload-button").addEventListener("click", uploadSample);
+document.querySelector("#create-target-session-button").addEventListener("click", createTargetSession);
 document.querySelector("#refresh-sessions-button").addEventListener("click", loadSessions);
 document.querySelector("#load-session-button").addEventListener("click", loadSelectedSession);
 document.querySelector("#apply-workflow-button").addEventListener("click", applyWorkflow);
@@ -49,7 +55,7 @@ async function loadSessions() {
   sessions = data.sessions || [];
   renderSelect(sessionSelect, sessions, "暂无 session", (session) => ({
     value: session.session_id,
-    label: `${session.sample?.filename || "sample"} | ${session.summary?.status || "created"}`,
+    label: `${sessionLabel(session)} | ${session.summary?.status || "created"}`,
   }));
   if (!currentSession && sessions.length) {
     currentSession = sessions[0];
@@ -65,6 +71,35 @@ async function loadSessions() {
   if (currentSession) {
     await loadCurrentResult();
   }
+}
+
+async function createTargetSession() {
+  const targets = splitLines(targetValues.value);
+  const authorizedScope = splitLines(targetScope.value);
+  if (!targets.length || !authorizedScope.length) {
+    setStatus("Targets and authorized scope are required.");
+    return;
+  }
+  await safe("Create target session failed", async () => {
+    currentSession = await request("/api/sessions/target", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        targets,
+        authorized_scope: authorizedScope,
+        exclude: splitLines(targetExclude.value),
+        module_id: "recon_scan",
+        label: targetLabel.value.trim(),
+        notes: targetNotes.value.trim(),
+      }),
+    });
+    selectedBatchSessionIds = new Set([currentSession.session_id]);
+    await loadSessions();
+    sessionSelect.value = currentSession.session_id;
+    renderSession(currentSession);
+    await loadCurrentResult();
+    setStatus("Target session created.");
+  });
 }
 
 async function loadWorkflows() {
@@ -152,6 +187,7 @@ async function runWorkflow() {
     currentSession = await request(`/api/sessions/${currentSession.session_id}/run`, {
       method: "POST",
     });
+    await maybeSaveReconFinalResult(currentSession);
     renderSession(currentSession);
     await loadCurrentResult();
     setStatus("Workflow 已完成。");
@@ -298,14 +334,13 @@ async function refreshReports() {
     if (!sampleSetReports.length) {
       latestSampleSetReport = null;
       renderSampleSetReport(null);
-      setStatus("No sample-set report.");
+      setStatus("No sample-set reports.");
       return;
     }
-    const selected = chooseDefaultReport(sampleSetReports);
-    reportSelect.value = selected.report_id;
-    latestSampleSetReport = await request(`/api/reports/${encodeURIComponent(selected.report_id)}`);
-    renderSampleSetReport(latestSampleSetReport);
-    setStatus(`Loaded report ${selected.report_id}`);
+    latestSampleSetReport = null;
+    reportSelect.value = "";
+    renderSampleSetReport(null);
+    setStatus("Sample-set reports loaded. Select one to view.");
   });
 }
 
@@ -411,7 +446,13 @@ async function loadCurrentResult() {
     return;
   }
   await safe("查询最终结果失败", async () => {
-    const result = await request(`/api/sessions/${currentSession.session_id}/result`);
+    let result = await request(`/api/sessions/${currentSession.session_id}/result`);
+    if (isEmptyFinalResult(result) && sessionHasResultKey(currentSession, "recon_attack_surface")) {
+      const saved = await saveReconFinalResultFromRawOutput(currentSession);
+      if (saved) {
+        result = saved;
+      }
+    }
     renderFinalResult(result);
   });
 }
@@ -421,10 +462,14 @@ function renderSession(session) {
     renderEmpty(sessionDetails, "暂无 session。");
     return;
   }
+  const target = session.target || {};
   sessionDetails.innerHTML = `
     <dt>session_id</dt><dd>${escapeHtml(session.session_id)}</dd>
-    <dt>文件</dt><dd>${escapeHtml(session.sample?.filename || "")}</dd>
-    <dt>大小</dt><dd>${escapeHtml(session.sample?.size ?? "")}</dd>
+    <dt>type</dt><dd>${escapeHtml(session.session_type || "sample")}</dd>
+    <dt>name</dt><dd>${escapeHtml(sessionLabel(session))}</dd>
+    <dt>size</dt><dd>${escapeHtml(session.sample?.size ?? "")}</dd>
+    <dt>targets</dt><dd>${escapeHtml((target.targets || []).join(", "))}</dd>
+    <dt>scope</dt><dd>${escapeHtml((target.authorized_scope || []).join(", "))}</dd>
     <dt>状态</dt><dd>${escapeHtml(session.summary?.status || "created")}</dd>
     <dt>流程</dt><dd>${escapeHtml(session.workflow?.name || "未配置")}</dd>
   `;
@@ -450,7 +495,7 @@ function renderBatchSessions() {
       }
     });
     const text = document.createElement("span");
-    text.textContent = `${session.sample?.filename || "sample"} | ${session.summary?.status || "created"} | ${session.session_id}`;
+    text.textContent = `${sessionLabel(session)} | ${session.summary?.status || "created"} | ${session.session_id}`;
     label.append(checkbox, text);
     batchSessionList.append(label);
   });
@@ -459,7 +504,7 @@ function renderBatchSessions() {
 function renderSampleSetReport(report) {
   sampleSetReport.replaceChildren();
   if (!report) {
-    renderEmpty(sampleSetReport, "No sample-set report.");
+    renderEmpty(sampleSetReport, "No sample-set reports.");
     return;
   }
   const summary = report.summary || {};
@@ -609,8 +654,107 @@ function linkedPage(label, href) {
   return `<a href="${escapeHtml(href)}">${label}</a>`;
 }
 
+async function maybeSaveReconFinalResult(session) {
+  if (!sessionHasResultKey(session, "recon_attack_surface")) {
+    return null;
+  }
+  const saved = await saveReconFinalResultFromSession(session);
+  return saved || saveReconFinalResultFromRawOutput(session);
+}
+
+async function saveReconFinalResultFromSession(session) {
+  const attackSurface = session?.raw_outputs?.recon_attack_surface;
+  const data = attackSurface?.data || {};
+  if (!isReconAttackSurfaceData(data)) {
+    return null;
+  }
+  return saveReconFinalResult(session, data);
+}
+
+async function saveReconFinalResultFromRawOutput(session) {
+  if (!session?.session_id) {
+    return null;
+  }
+  const map = await request(`/api/sessions/${encodeURIComponent(session.session_id)}/raw-output-map`);
+  const item = (map.items || []).find((rawItem) => rawItem.result_key === "recon_attack_surface");
+  if (!item?.raw_output_id) {
+    return null;
+  }
+  const detail = await request(
+    `/api/sessions/${encodeURIComponent(session.session_id)}/raw-output/${encodeURIComponent(item.raw_output_id)}`,
+  );
+  const data = detail.item?.output?.data || {};
+  if (!isReconAttackSurfaceData(data)) {
+    return null;
+  }
+  return saveReconFinalResult(session, data);
+}
+
+async function saveReconFinalResult(session, data) {
+  const result = buildReconFinalResult(session, data);
+  return request(`/api/sessions/${encodeURIComponent(session.session_id)}/result`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(result),
+  });
+}
+
+function buildReconFinalResult(session, data) {
+  return {
+    session_id: session.session_id,
+    module_id: "recon_scan",
+    schema_id: "recon_scan.final_result.v1",
+    target: session.target || {},
+    file: session.sample || {},
+    target_scope: data.target_scope || {},
+    summary: data.summary || {
+      overall: "Recon workflow completed, but no summary was extracted.",
+      risk_level: "unknown",
+      planned_only: false,
+      limitations: [],
+    },
+    assets: data.assets || {
+      domains: [],
+      hosts: [],
+      web_endpoints: [],
+      urls: [],
+      services: [],
+    },
+    candidate_findings: Array.isArray(data.candidate_findings) ? data.candidate_findings : [],
+    recommended_next_steps: Array.isArray(data.recommended_next_steps) ? data.recommended_next_steps : [],
+  };
+}
+
+function isReconAttackSurfaceData(data) {
+  return Boolean(data && typeof data === "object" && (data.assets || data.target_scope || data.summary));
+}
+
+function sessionHasResultKey(session, resultKey) {
+  if (!session) {
+    return false;
+  }
+  if (session.raw_outputs && Object.prototype.hasOwnProperty.call(session.raw_outputs, resultKey)) {
+    return true;
+  }
+  return Array.isArray(session.summary?.result_keys) && session.summary.result_keys.includes(resultKey);
+}
+
+function isEmptyFinalResult(result) {
+  return !(
+    result?.assets ||
+    result?.candidate_findings ||
+    result?.target_scope ||
+    (Array.isArray(result?.behaviors) && result.behaviors.length) ||
+    result?.summary?.overall
+  );
+}
+
 function renderFinalResult(result) {
   finalResult.replaceChildren();
+  if (result.assets || result.candidate_findings || result.target_scope) {
+    renderReconFinalResult(result);
+    return;
+  }
   if (!Array.isArray(result.behaviors) || !result.behaviors.length) {
     renderEmpty(finalResult, "暂无最终结果。");
     return;
@@ -636,6 +780,65 @@ function renderFinalResult(result) {
     section.append(item);
   });
   finalResult.append(section);
+}
+
+function renderReconFinalResult(result) {
+  const assets = result.assets || {};
+  const targetScope = result.target_scope || {};
+  const section = document.createElement("article");
+  section.className = "result-block";
+  section.innerHTML = `
+    <h3>${escapeHtml(result.target?.label || result.file?.filename || result.session_id || "target")}</h3>
+    <p>${escapeHtml(result.summary?.risk_level || "unknown")} | ${escapeHtml(result.summary?.overall || "")}</p>
+    <dl class="details">
+      <dt>authorized</dt><dd>${escapeHtml(targetScope.authorized ?? "")}</dd>
+      <dt>active authorized</dt><dd>${escapeHtml(targetScope.active_authorized ?? "")}</dd>
+      <dt>scope</dt><dd>${escapeHtml(targetScope.scope_summary || `allowed: ${targetScope.allowed_count ?? ""}, out_of_scope: ${targetScope.out_of_scope_count ?? ""}`)}</dd>
+      <dt>domains</dt><dd>${escapeHtml((assets.domains || []).join(", "))}</dd>
+      <dt>hosts</dt><dd>${escapeHtml((assets.hosts || []).join(", "))}</dd>
+      <dt>web</dt><dd>${escapeHtml((assets.web_endpoints || []).map((item) => item.url || "").filter(Boolean).join(", "))}</dd>
+      <dt>urls</dt><dd>${escapeHtml((assets.urls || []).map((item) => item.url || "").filter(Boolean).join(", "))}</dd>
+      <dt>services</dt><dd>${escapeHtml((assets.services || []).map((item) => `${item.host || ""}:${item.port || ""} ${item.service || ""}`.trim()).join(", "))}</dd>
+      <dt>warnings</dt><dd>${escapeHtml((targetScope.warnings || []).join("; "))}</dd>
+    </dl>
+  `;
+  (result.candidate_findings || []).forEach((finding) => {
+    const item = document.createElement("article");
+    item.className = "item-block";
+    item.innerHTML = `
+      <h4>${escapeHtml(finding.title || "Candidate finding")}</h4>
+      <dl class="details">
+        <dt>severity</dt><dd>${escapeHtml(finding.severity || "unknown")}</dd>
+        <dt>asset</dt><dd>${escapeHtml(finding.affected_asset || "")}</dd>
+        <dt>evidence</dt><dd>${escapeHtml(finding.evidence?.summary || "")}</dd>
+        <dt>verification</dt><dd>${escapeHtml(finding.verification || "unverified")}</dd>
+      </dl>
+    `;
+    section.append(item);
+  });
+  (result.recommended_next_steps || []).forEach((step) => {
+    const item = document.createElement("p");
+    item.textContent = `${step.action || ""} ${step.reason || ""}`.trim();
+    section.append(item);
+  });
+  finalResult.append(section);
+}
+
+function splitLines(value) {
+  return String(value || "")
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function sessionLabel(session) {
+  if (session?.target?.label) {
+    return session.target.label;
+  }
+  if (Array.isArray(session?.target?.targets) && session.target.targets.length) {
+    return session.target.targets[0];
+  }
+  return session?.sample?.filename || "sample";
 }
 
 function openResult() {

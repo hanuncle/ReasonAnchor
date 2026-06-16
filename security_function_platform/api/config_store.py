@@ -41,6 +41,14 @@ class ConfigStore:
                     "path": path,
                     "label": field["label"],
                     "secret": field["secret"],
+                    "function_id": str(field.get("function_id") or ""),
+                    "module_id": str(field.get("module_id") or self._namespace_from_path(path)),
+                    "module_name": str(
+                        field.get("module_name")
+                        or field.get("module_id")
+                        or self._namespace_from_path(path)
+                    ),
+                    "namespace": self._namespace_from_path(path),
                     "configured": configured,
                     "value": None if field["secret"] else value,
                 }
@@ -119,3 +127,7 @@ class ConfigStore:
         if any(part in {"", ".."} for part in field["path"].split(".")):
             return False
         return isinstance(field.get("secret"), bool)
+
+    @staticmethod
+    def _namespace_from_path(path: str) -> str:
+        return str(path or "").split(".", 1)[0]

@@ -14,7 +14,7 @@ Use the platform for local security analysis workflows. Do not execute uploaded 
 4. Call `get_module_skill(module_id)` only for the selected module.
 5. Use `get_module_detail(module_id)` when manifest details, functions, workflows, config fields, or validation status are needed.
 6. Before analysis work starts, ask whether module code self-iteration is allowed for this task.
-7. Upload a sample with `upload_sample` or `upload_samples`, or reuse the current session.
+7. Upload a sample with `upload_sample` or `upload_samples`, create a target session with `create_target_session`, or reuse the current session.
 8. Call `list_functions` and `list_custom_workflows`.
 9. Choose an existing workflow or create one with `save_custom_workflow`, then apply it with `select_custom_workflow`.
 10. Run it with `run_workflow`.
@@ -74,6 +74,7 @@ Before writing any new file, inspect the target module directory and nearby file
 | `upsert_module_ui_page` | Create or replace one module frontend page declaration using a platform-owned renderer. |
 | `upload_sample` | Upload one local sample and create a session. |
 | `upload_samples` | Upload multiple local samples and create sessions. |
+| `create_target_session` | Create a non-sample session for target-based modules such as recon or vulnerability scanning. |
 | `list_functions` | List all registered platform and module functions. |
 | `list_custom_workflows` | List saved platform and module workflow templates. |
 | `save_custom_workflow` | Save a new workflow template. |

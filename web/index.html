@@ -35,6 +35,33 @@
         </section>
 
         <section>
+          <h3>Target session</h3>
+          <div class="form-grid">
+            <label class="field">
+              <span>Targets</span>
+              <textarea id="target-values" placeholder="https://www.example.com"></textarea>
+            </label>
+            <label class="field">
+              <span>Authorized scope</span>
+              <textarea id="target-scope" placeholder="example.com&#10;*.example.com"></textarea>
+            </label>
+            <label class="field">
+              <span>Exclude</span>
+              <textarea id="target-exclude"></textarea>
+            </label>
+            <label class="field">
+              <span>Label</span>
+              <input id="target-label" type="text" placeholder="Authorized recon target" />
+            </label>
+            <label class="field wide">
+              <span>Notes</span>
+              <textarea id="target-notes"></textarea>
+            </label>
+          </div>
+          <button id="create-target-session-button" type="button">Create target session</button>
+        </section>
+
+        <section>
           <h3>Session 选择</h3>
           <div class="inline-controls">
             <select id="session-select"></select>

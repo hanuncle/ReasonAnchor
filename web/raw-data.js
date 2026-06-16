@@ -22,6 +22,10 @@ async function init() {
     const sessionId = params.get("session_id");
     if (sessionId) {
       sessionSelect.value = sessionId;
+      if (sessionSelect.value) {
+        await loadRawMap();
+        await loadAiOutput();
+      }
     }
     setStatus("原始数据查询已就绪。");
   });
@@ -32,7 +36,7 @@ async function loadSessions() {
   sessions = data.sessions || [];
   renderSelect(sessionSelect, sessions, "暂无 session", (session) => ({
     value: session.session_id,
-    label: `${session.sample?.filename || "sample"} | ${session.session_id}`,
+    label: `${sessionLabel(session)} | ${session.session_id}`,
   }));
 }
 
@@ -44,10 +48,17 @@ async function loadRawMap() {
   await safe("查询 raw output map 失败", async () => {
     const data = await request(`/api/sessions/${encodeURIComponent(sessionSelect.value)}/raw-output-map`);
     rawMapOutput.textContent = JSON.stringify(data, null, 2);
-    renderSelect(rawOutputSelect, data.items || [], "暂无 raw_output_id", (item) => ({
+    const items = data.items || [];
+    const previousRawOutputId = rawOutputSelect.value;
+    renderSelect(rawOutputSelect, items, "暂无 raw_output_id", (item) => ({
       value: item.raw_output_id,
       label: `${item.raw_output_id} | ${item.result_key || ""}`,
     }));
+    if (items.length) {
+      const previousStillExists = items.some((item) => item.raw_output_id === previousRawOutputId);
+      rawOutputSelect.value = previousStillExists ? previousRawOutputId : items[0].raw_output_id;
+      await loadRawItem();
+    }
     setStatus(data.items?.length ? "raw output map 已加载。" : "当前 session 没有原始数据。");
   });
 }
@@ -76,4 +87,14 @@ async function loadAiOutput() {
     aiOutput.textContent = JSON.stringify(data, null, 2);
     setStatus(data.items?.length ? "AI 输出已加载。" : "当前 session 没有 AI 输出。");
   });
+}
+
+function sessionLabel(session) {
+  if (session?.target?.label) {
+    return session.target.label;
+  }
+  if (Array.isArray(session?.target?.targets) && session.target.targets.length) {
+    return session.target.targets[0];
+  }
+  return session?.sample?.filename || "sample";
 }

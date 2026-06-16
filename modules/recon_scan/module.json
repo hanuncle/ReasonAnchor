@@ -1,0 +1,118 @@
+{
+  "template_version": "1",
+  "module_id": "recon_scan",
+  "name": "Recon Scan Module",
+  "version": "0.2.0",
+  "description": "Authorized target reconnaissance module built around AI-gated workflow execution and single-function follow-up loops.",
+  "requirements": {
+    "network": true,
+    "active_scan": true,
+    "requires_authorization": true,
+    "sample_execution": false,
+    "external_tools": [
+      "dnsx",
+      "httpx",
+      "naabu",
+      "nmap",
+      "tlsx",
+      "katana",
+      "ffuf",
+      "nuclei"
+    ]
+  },
+  "functions": [
+    {
+      "function_id": "recon.scope_validate",
+      "path": "functions/scope_validate.py",
+      "class_name": "ReconScopeValidateFunction"
+    },
+    {
+      "function_id": "recon.target_normalize",
+      "path": "functions/target_normalize.py",
+      "class_name": "ReconTargetNormalizeFunction"
+    },
+    {
+      "function_id": "recon.dns_probe",
+      "path": "functions/dns_probe.py",
+      "class_name": "ReconDnsProbeFunction"
+    },
+    {
+      "function_id": "recon.http_probe",
+      "path": "functions/http_probe.py",
+      "class_name": "ReconHttpProbeFunction"
+    },
+    {
+      "function_id": "recon.port_scan",
+      "path": "functions/port_scan.py",
+      "class_name": "ReconPortScanFunction"
+    },
+    {
+      "function_id": "recon.service_identify",
+      "path": "functions/service_identify.py",
+      "class_name": "ReconServiceIdentifyFunction"
+    },
+    {
+      "function_id": "recon.web_light_discover",
+      "path": "functions/web_light_discover.py",
+      "class_name": "ReconWebLightDiscoverFunction"
+    },
+    {
+      "function_id": "recon.vulnerability_candidate_scan",
+      "path": "functions/vulnerability_candidate_scan.py",
+      "class_name": "ReconVulnerabilityCandidateScanFunction"
+    },
+    {
+      "function_id": "recon.attack_surface_summarize",
+      "path": "functions/attack_surface_summarize.py",
+      "class_name": "ReconAttackSurfaceSummarizeFunction"
+    },
+    {
+      "function_id": "recon.next_step_options",
+      "path": "functions/next_step_options.py",
+      "class_name": "ReconNextStepOptionsFunction"
+    },
+    {
+      "function_id": "recon.report_generate",
+      "path": "functions/report_generate.py",
+      "class_name": "ReconReportGenerateFunction"
+    }
+  ],
+  "workflows": [
+    "workflows/recon_scope_prepare_flow.json",
+    "workflows/recon_basic_collection_flow.json"
+  ],
+  "knowledge": [
+    {
+      "type": "scan_workflow_matrix",
+      "path": "knowledge/scan_workflow_matrix.json"
+    }
+  ],
+  "ui": {
+    "pages": [
+      {
+        "page_id": "scan_workflow_matrix",
+        "title": "Recon Scan Workflow Matrix",
+        "description": "Function and workflow split for AI-gated reconnaissance loops.",
+        "type": "knowledge_table",
+        "knowledge_type": "scan_workflow_matrix",
+        "columns": [
+          "id",
+          "name",
+          "execution_mode",
+          "risk",
+          "default_use",
+          "ai_gate",
+          "notes"
+        ]
+      }
+    ]
+  },
+  "config_fields": [
+    "config_fields/function_config_fields.json"
+  ],
+  "skill": {
+    "skill_file": "skill/SKILL.md",
+    "playbook_file": "skill/playbook.json",
+    "final_result_schema_file": "skill/final_result_schema.json"
+  }
+}

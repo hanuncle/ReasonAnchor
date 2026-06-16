@@ -4,6 +4,7 @@ from security_function_platform.mcp_server import server
 EXPECTED_TOOLS = {
     "upload_sample",
     "upload_samples",
+    "create_target_session",
     "list_functions",
     "save_custom_workflow",
     "list_custom_workflows",
@@ -94,6 +95,14 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
 
     assert server.upload_sample(str(sample)) == {"session_id": "demo"}
     assert server.upload_samples([str(sample), str(sample_two)])["count"] == 2
+    assert server.create_target_session(
+        ["https://www.example.test"],
+        ["example.test", "*.example.test"],
+        "recon_scan",
+        [],
+        "example target",
+        "authorized test target",
+    )["path"] == "/api/sessions/target"
     assert server.list_functions()["path"] == "/api/functions"
     assert server.save_custom_workflow("basic", {"name": "basic", "steps": []})["ok"] is True
     assert server.list_custom_workflows()["path"] == "/api/workflows"
@@ -146,6 +155,18 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
     assert calls == [
         ("UPLOAD", "/api/sessions/upload", "sample.bin"),
         ("UPLOADS", "/api/sessions/upload-multiple", ["sample.bin", "sample2.bin"]),
+        (
+            "POST",
+            "/api/sessions/target",
+            {
+                "targets": ["https://www.example.test"],
+                "authorized_scope": ["example.test", "*.example.test"],
+                "exclude": [],
+                "module_id": "recon_scan",
+                "label": "example target",
+                "notes": "authorized test target",
+            },
+        ),
         ("GET", "/api/functions", None),
         ("POST", "/api/workflows", {"name": "basic", "workflow": {"name": "basic", "steps": []}}),
         ("GET", "/api/workflows", None),

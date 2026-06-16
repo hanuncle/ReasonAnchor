@@ -1,0 +1,58 @@
+{
+  "items": [
+    {
+      "id": "recon_scope_prepare_flow",
+      "name": "Scope prepare workflow",
+      "execution_mode": "workflow",
+      "risk": "low",
+      "default_use": "Use when target and scope need validation without network activity.",
+      "ai_gate": "AI reviews authorization status before any active collection.",
+      "notes": "Contains scope validation, target normalization, empty attack-surface shell, next-step options, and report draft."
+    },
+    {
+      "id": "recon_basic_collection_flow",
+      "name": "Basic collection workflow",
+      "execution_mode": "workflow",
+      "risk": "high",
+      "default_use": "Use after explicit authorization when DNS, HTTP liveness, and low-rate port scanning should run automatically.",
+      "ai_gate": "AI reviews returned ai_output before service identification, web discovery, or nuclei.",
+      "notes": "Active steps are blocked unless confirm_authorized is supplied through params or recon_scan.confirm_authorized config."
+    },
+    {
+      "id": "recon.service_identify",
+      "name": "Service identify",
+      "execution_mode": "single_function",
+      "risk": "medium",
+      "default_use": "Run after AI reviews open ports and chooses host/port scope.",
+      "ai_gate": "Required before execution.",
+      "notes": "Uses or ingests nmap output."
+    },
+    {
+      "id": "recon.web_light_discover",
+      "name": "Web light discovery",
+      "execution_mode": "single_function",
+      "risk": "medium",
+      "default_use": "Run after AI reviews live HTTP endpoints.",
+      "ai_gate": "Required before execution.",
+      "notes": "Uses or ingests tlsx, katana, and optional ffuf output."
+    },
+    {
+      "id": "recon.vulnerability_candidate_scan",
+      "name": "Vulnerability candidate scan",
+      "execution_mode": "single_function",
+      "risk": "high",
+      "default_use": "Run only after AI selects target URLs and severity scope.",
+      "ai_gate": "Required before execution.",
+      "notes": "Uses or ingests nuclei output; all findings stay candidate-only."
+    },
+    {
+      "id": "recon.report_generate",
+      "name": "Report generate",
+      "execution_mode": "single_function",
+      "risk": "low",
+      "default_use": "Run after each stage and at final completion.",
+      "ai_gate": "AI saves final_result with save_session_result when complete.",
+      "notes": "Produces structured final_result and markdown draft for frontend result mapping."
+    }
+  ]
+}

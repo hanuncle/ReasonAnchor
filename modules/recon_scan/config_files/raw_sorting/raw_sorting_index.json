@@ -1,0 +1,71 @@
+{
+  "sorters": [
+    {
+      "function_id": "recon.scope_validate",
+      "result_key": "recon_scope",
+      "sorter_file": "recon_scope_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.target_normalize",
+      "result_key": "recon_targets",
+      "sorter_file": "recon_targets_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.dns_probe",
+      "result_key": "recon_dns",
+      "sorter_file": "recon_stage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.http_probe",
+      "result_key": "recon_http",
+      "sorter_file": "recon_stage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.port_scan",
+      "result_key": "recon_ports",
+      "sorter_file": "recon_stage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.service_identify",
+      "result_key": "recon_services",
+      "sorter_file": "recon_stage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.web_light_discover",
+      "result_key": "recon_web",
+      "sorter_file": "recon_stage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.vulnerability_candidate_scan",
+      "result_key": "recon_vuln_candidates",
+      "sorter_file": "recon_stage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.attack_surface_summarize",
+      "result_key": "recon_attack_surface",
+      "sorter_file": "recon_attack_surface_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.next_step_options",
+      "result_key": "recon_next_steps",
+      "sorter_file": "recon_next_steps_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "recon.report_generate",
+      "result_key": "recon_final_report",
+      "sorter_file": "recon_report_sorter.py",
+      "callable": "sort_output"
+    }
+  ],
+  "fallback": "raw"
+}

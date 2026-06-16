@@ -51,6 +51,8 @@ def test_config_store_uses_supplied_config_fields(tmp_path) -> None:
     assert field_by_path(initial, "tool_example.path")["configured"] is False
     assert field_by_path(saved, "tool_example.path")["configured"] is True
     assert field_by_path(saved, "tool_example.path")["value"] == "example.exe"
+    assert field_by_path(saved, "tool_example.path")["module_id"] == "tool_example"
+    assert field_by_path(saved, "tool_example.path")["namespace"] == "tool_example"
 
 
 def test_config_api_returns_and_redacts_extra_fields(tmp_path, monkeypatch) -> None:
@@ -83,6 +85,8 @@ def test_config_api_returns_and_redacts_extra_fields(tmp_path, monkeypatch) -> N
     assert field["secret"] is True
     assert field["configured"] is True
     assert field["value"] is None
+    assert field["module_id"] == "example_provider"
+    assert field["module_name"] == "example_provider"
     assert "test-secret" not in json.dumps(saved)
 
 

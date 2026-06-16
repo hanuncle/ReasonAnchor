@@ -1,0 +1,65 @@
+{
+  "workflow_id": "recon_basic_collection_flow",
+  "name": "recon_basic_collection_flow",
+  "description": "Authorized basic collection workflow: scope validation, target normalization, DNS probe, HTTP liveness, low-rate port scan, attack-surface summary, next-step options, and report draft. Heavy service/web/vulnerability steps remain single-function AI-gated follow-ups.",
+  "tags": ["recon_scan", "authorized", "active", "basic-collection", "ai-gated"],
+  "risk": "high",
+  "network": true,
+  "config_required": false,
+  "default_safe": false,
+  "workflow": {
+    "name": "recon_basic_collection_flow",
+    "steps": [
+      {
+        "function_id": "recon.scope_validate",
+        "params": {
+          "active_scan": true,
+          "targets": [],
+          "authorized_scope": [],
+          "exclude": [],
+          "confirm_authorized": ""
+        }
+      },
+      {
+        "function_id": "recon.target_normalize",
+        "params": {}
+      },
+      {
+        "function_id": "recon.dns_probe",
+        "params": {
+          "rate_limit": "low",
+          "timeout_seconds": 90
+        }
+      },
+      {
+        "function_id": "recon.http_probe",
+        "params": {
+          "rate_limit": "low",
+          "timeout_seconds": 120
+        }
+      },
+      {
+        "function_id": "recon.port_scan",
+        "params": {
+          "ports": "top-1000",
+          "rate_limit": "low",
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "function_id": "recon.attack_surface_summarize",
+        "params": {}
+      },
+      {
+        "function_id": "recon.next_step_options",
+        "params": {}
+      },
+      {
+        "function_id": "recon.report_generate",
+        "params": {
+          "report_stage": "basic_collection"
+        }
+      }
+    ]
+  }
+}

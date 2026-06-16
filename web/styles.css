@@ -258,6 +258,46 @@ dd {
   grid-template-columns: 220px 220px 80px minmax(160px, 1fr) auto auto;
 }
 
+.config-group {
+  border-top: 1px solid #d8d8d2;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.config-group:first-child {
+  margin-top: 0;
+}
+
+.config-group-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.config-group-header h3 {
+  margin-bottom: 2px;
+}
+
+.config-group-header span {
+  color: #62665f;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.config-group-fields {
+  display: grid;
+  gap: 0;
+}
+
+.config-state {
+  color: #62665f;
+}
+
+.config-state.configured {
+  color: #285c38;
+}
+
 .tool-row {
   grid-template-columns: 240px minmax(0, 1fr);
 }

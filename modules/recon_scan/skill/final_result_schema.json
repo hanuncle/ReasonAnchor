@@ -1,0 +1,115 @@
+{
+  "schema_id": "recon_scan.final_result.v1",
+  "module_id": "recon_scan",
+  "description": "Final AI summary output structure for authorized reconnaissance sessions.",
+  "write_target": "data/sessions/<session_id>/result/result.json",
+  "save_with": "save_session_result",
+  "required_top_level_fields": [
+    "session_id",
+    "module_id",
+    "schema_id",
+    "target_scope",
+    "summary",
+    "stage_coverage",
+    "assets",
+    "candidate_findings",
+    "recommended_next_steps"
+  ],
+  "output": {
+    "session_id": "string",
+    "module_id": "recon_scan",
+    "schema_id": "recon_scan.final_result.v1",
+    "target_scope": {
+      "authorized": "boolean",
+      "active_authorized": "boolean",
+      "scope_summary": "string",
+      "excluded": ["string"],
+      "limitations": ["string"]
+    },
+    "summary": {
+      "overall": "string",
+      "risk_level": "unknown|low|medium|high",
+      "planned_only": "boolean",
+      "report_stage": "string",
+      "limitations": ["string"]
+    },
+    "stage_coverage": {
+      "scope_validate": "string",
+      "target_normalize": "string",
+      "dns_probe": "string",
+      "http_probe": "string",
+      "port_scan": "string",
+      "service_identify": "string",
+      "web_light_discover": "string",
+      "vulnerability_candidate_scan": "string"
+    },
+    "assets": {
+      "domains": ["string"],
+      "hosts": ["string"],
+      "addresses": ["string"],
+      "web_endpoints": [
+        {
+          "url": "string",
+          "status_code": "number|string|null",
+          "title": "string",
+          "webserver": "string",
+          "technologies": ["string"],
+          "source": "string"
+        }
+      ],
+      "urls": [
+        {
+          "url": "string",
+          "source": "string"
+        }
+      ],
+      "services": [
+        {
+          "host": "string",
+          "port": "string",
+          "service": "string",
+          "product": "string",
+          "source": "string"
+        }
+      ]
+    },
+    "candidate_findings": [
+      {
+        "title": "string",
+        "severity": "info|low|medium|high|critical|unknown",
+        "affected_asset": "string",
+        "evidence": {
+          "summary": "string",
+          "sources": [
+            {
+              "source_type": "ai_output|raw_output|manual",
+              "raw_output_id": "string",
+              "function_id": "string",
+              "result_key": "string",
+              "description": "string"
+            }
+          ]
+        },
+        "verification": "verified|unverified",
+        "recommended_fix": "string"
+      }
+    ],
+    "recommended_next_steps": [
+      {
+        "type": "string",
+        "function_id": "string",
+        "params_template": {},
+        "reason": "string",
+        "risk": "string",
+        "requires_human_confirmation": "boolean"
+      }
+    ]
+  },
+  "rules": [
+    "Save the final output with save_session_result.",
+    "Only summarize explicitly authorized scope.",
+    "Keep candidate findings separate from verified vulnerabilities.",
+    "Do not include secrets, credentials, tokens, or private API keys.",
+    "Use raw_output_id evidence references when a manual final claim depends on raw details."
+  ]
+}

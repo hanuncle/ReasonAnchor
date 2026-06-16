@@ -13,6 +13,7 @@ const mcpTools = [
   ["import_module_archive", "导入模块包"],
   ["upload_sample", "上传一个样本"],
   ["upload_samples", "上传多个样本"],
+  ["create_target_session", "创建目标型 session"],
   ["list_functions", "列出函数"],
   ["list_custom_workflows", "列出流程模板"],
   ["save_custom_workflow", "保存流程模板"],

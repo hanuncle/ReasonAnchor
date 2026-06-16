@@ -1,0 +1,100 @@
+{
+  "fields": [
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.targets",
+      "label": "Reconnaissance targets",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.authorized_scope",
+      "label": "Authorized reconnaissance scope",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.exclude",
+      "label": "Excluded targets or scope patterns",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.confirm_authorized",
+      "label": "Active recon confirmation token",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.default_rate_limit",
+      "label": "Default recon rate limit",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.dnsx_path",
+      "label": "dnsx executable path",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.httpx_path",
+      "label": "httpx executable path",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.naabu_path",
+      "label": "naabu executable path",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.nmap_path",
+      "label": "nmap executable path",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.tlsx_path",
+      "label": "tlsx executable path",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.katana_path",
+      "label": "katana executable path",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.ffuf_path",
+      "label": "ffuf executable path",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.nuclei_path",
+      "label": "nuclei executable path",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.wordlist_path",
+      "label": "Content discovery wordlist path",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.timeout_seconds",
+      "label": "Recon tool timeout in seconds",
+      "secret": false
+    },
+    {
+      "function_id": "recon_scan.module",
+      "path": "recon_scan.max_output_bytes",
+      "label": "Maximum stored tool output bytes",
+      "secret": false
+    }
+  ]
+}

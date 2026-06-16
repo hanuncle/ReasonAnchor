@@ -221,6 +221,26 @@ async def upload_sessions(files: list[UploadFile] = File(...)) -> dict[str, Any]
     }
 
 
+@app.post("/api/sessions/target")
+def create_target_session(body: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return store.create_target_session(
+            body.get("targets") or body.get("target"),
+            body.get("authorized_scope") or body.get("scope"),
+            body.get("exclude"),
+            str(body.get("module_id") or ""),
+            str(body.get("label") or ""),
+            str(body.get("notes") or ""),
+        )
+    except ValueError as exc:
+        code = str(exc)
+        message = "Targets and authorized_scope are required for a target session."
+        raise HTTPException(
+            status_code=400,
+            detail={"code": code, "message": message},
+        ) from None
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     return store.list_sessions()
@@ -584,12 +604,7 @@ def run_session_function(session_id: str, body: dict[str, Any]) -> dict[str, Any
             },
         ) from None
 
-    context = {
-        "sample_path": session["sample"]["stored_path"],
-        "filename": session["sample"]["filename"],
-        "results": dict(session.get("raw_outputs") or {}),
-        "config": config_store.load_config(),
-    }
+    context = _session_context(session, dict(session.get("raw_outputs") or {}))
     result = registry.run(function_id, context, dict(body.get("params") or {}))
     result_dict = result.to_dict()
     context.setdefault("results", {})[result.result_key] = result_dict
@@ -809,12 +824,7 @@ def _run_session_workflow(
         )
 
     workflow = WorkflowDefinition.from_dict(session["workflow"])
-    context = {
-        "sample_path": session["sample"]["stored_path"],
-        "filename": session["sample"]["filename"],
-        "results": {},
-        "config": config_store.load_config(),
-    }
+    context = _session_context(session, {})
     if batch_index is not None:
         context["batch_index"] = batch_index
     store.clear_raw_output(session_id)
@@ -837,6 +847,26 @@ def _run_session_workflow(
     store.save_ai_output(session_id, ai_output)
     completed["ai_output"] = ai_output
     return completed
+
+
+def _session_context(session: dict[str, Any], results: dict[str, Any]) -> dict[str, Any]:
+    sample = session.get("sample") if isinstance(session.get("sample"), dict) else {}
+    target = session.get("target") if isinstance(session.get("target"), dict) else {}
+    context: dict[str, Any] = {
+        "sample_path": str(sample.get("stored_path") or ""),
+        "filename": str(sample.get("filename") or target.get("label") or ""),
+        "results": results,
+        "config": config_store.load_config(),
+        "session_type": str(session.get("session_type") or "sample"),
+    }
+    if target:
+        context["target"] = target
+        context["targets"] = _string_list(target.get("targets"))
+        context["authorized_scope"] = _string_list(target.get("authorized_scope"))
+        context["exclude"] = _string_list(target.get("exclude"))
+        if target.get("module_id"):
+            context["module_id"] = str(target.get("module_id") or "")
+    return context
 
 
 def _workflow_from_template(workflow_id: str) -> WorkflowDefinition:
