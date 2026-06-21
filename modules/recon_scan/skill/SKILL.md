@@ -1,61 +1,67 @@
 # Recon Scan Module Skill
 
-这个工具用于授权靶场或明确授权目标的侦察扫描。扫描前必须先询问用户目标是否为靶场或已授权目标；只有用户确认后，才可以进行随意操作
+Use `recon_scan` for authorized reconnaissance against lab targets, training ranges, internal assets, or other explicitly approved targets. This module is for recon and candidate validation only. It does not authorize exploitation, brute force, persistence, lateral movement, destructive testing, or data extraction.
 
-Use this module for authorized target reconnaissance where the intended loop is:
+## Module Purpose And Boundary
 
-1. Run a suitable workflow.
-2. Review returned `ai_output`.
-3. Let AI choose the next safest useful step.
-4. Call one function with `run_function`.
-5. Re-summarize with `recon.attack_surface_summarize`, refresh options with `recon.next_step_options`, and repeat.
-6. Generate a final report with `recon.report_generate` and save `final_result` with `save_session_result`.
+- Use this module only when the operator has provided `targets` and a matching `authorized_scope`.
+- Treat every active step as gated. If the task lacks explicit authorization for active probing, stay on the safe preparation path.
+- Keep findings candidate-only until they are manually verified outside this module.
+
+## Execution Overview
+
+Follow this execution loop:
+
+1. Choose a workflow.
+2. Review `ai_output`.
+3. Run at most one AI-gated follow-up function with `run_function`.
+4. Re-run `recon.attack_surface_summarize`.
+5. Re-run `recon.next_step_options`.
+6. Repeat until there is no higher-value low or medium risk step.
+7. Generate the final report with `recon.report_generate`.
+8. Save the returned `final_result` with `save_session_result`.
+
+## When To Use Each Supporting Skill
+
+Use `CONTROLLED_EXECUTION_SKILL.md` when:
+
+- authorization is incomplete or needs reconfirmation
+- a tool call times out at the MCP layer
+- output is noisy and needs extraction before analysis
+- AI is deciding whether to continue, pause, or stop
+
+Use `SCAN_STRATEGY_SKILL.md` when:
+
+- choosing between `recon_scope_prepare_flow` and `recon_basic_collection_flow`
+- selecting the next follow-up function after a workflow run
+- deciding whether to continue scanning or move to final reporting
+
+Use `FINAL_RESULT_WRITING_SKILL.md` when:
+
+- writing the final summary
+- separating candidate findings from verified conclusions
+- mapping evidence to `raw_output_id`, `function_id`, and `result_key`
 
 ## Required Inputs
 
-- `targets`: domains, URLs, IPs, or CIDR ranges.
-- `authorized_scope`: exact domains, wildcard domains, URLs, IPs, or CIDRs that bound the engagement.
-- `exclude`: optional out-of-scope patterns.
-- `confirm_authorized`: required for active functions. Use `I_CONFIRM_AUTHORIZED_ACTIVE_RECON` only after the user confirms the active scan is authorized.
+- `targets`: domains, URLs, IPs, or CIDR ranges
+- `authorized_scope`: exact domains, wildcard domains, URLs, IPs, or CIDRs that bound the engagement
+- `exclude`: optional out-of-scope patterns
+- `confirm_authorized`: required for active functions and active workflows. Use `I_CONFIRM_AUTHORIZED_ACTIVE_RECON` only after the operator confirms active probing is authorized.
 
-Inputs can come from target sessions, function params, workflow step params, or `recon_scan.*` config fields.
+Inputs can come from target sessions, workflow step params, function params, or `recon_scan.*` config fields.
 
-## Workflow Split
+## Final Save Rule
 
-- `recon_scope_prepare_flow`: no-network setup. It validates target scope, normalizes targets, creates an empty attack-surface shell, produces next-step options, and generates a report draft.
-- `recon_basic_collection_flow`: automated basic collection. It validates active authorization, normalizes targets, runs DNS probing, HTTP liveness probing, low-rate port scanning, summarizes the attack surface, returns next-step options, and generates a stage report.
+- Prefer the `final_result` returned by `recon.report_generate`.
+- Save it with `save_session_result`.
+- Use raw evidence only when `ai_output` is insufficient. Before raw detail, call `get_raw_output_map`, then fetch only the necessary `raw_output_id`.
 
-Do not package service identification, web light discovery, or vulnerability candidate scanning into the default workflow. These are single-function AI-gated steps:
+## Explicit Prohibitions
 
-- `recon.service_identify`
-- `recon.web_light_discover`
-- `recon.vulnerability_candidate_scan`
-
-After each single-function step, call:
-
-- `recon.attack_surface_summarize`
-- `recon.next_step_options`
-- `recon.report_generate` when a stage or final report is needed
-
-## Function Groups
-
-- Scope and target prep: `recon.scope_validate`, `recon.target_normalize`.
-- Basic automated collection: `recon.dns_probe`, `recon.http_probe`, `recon.port_scan`.
-- AI-gated follow-up: `recon.service_identify`, `recon.web_light_discover`, `recon.vulnerability_candidate_scan`.
-- AI loop and reporting: `recon.attack_surface_summarize`, `recon.next_step_options`, `recon.report_generate`.
-
-## Safety Rules
-
-- Do not scan targets outside `authorized_scope`.
-- Do not run active steps unless `confirm_authorized` is exact.
-- Keep rate limits low by default.
-- Treat nuclei/template output as candidate-only until manually verified.
-- If a `run_function` call times out at the MCP layer, call `get_raw_output_map` before deciding whether the function failed or should be retried; long-running tools may still finish and persist a raw output after the client timeout.
-- Treat `ffuf` output as high-noise unless it is parsed from structured JSON `results`; do not treat wordlist comments or generated `FUZZ` substitutions as discovered URLs.
-- Do not run brute force, exploitation, destructive testing, persistence, lateral movement, or data extraction from this module.
-- Prefer `ai_output`; before raw detail, call `get_raw_output_map`, then fetch only the needed `raw_output_id`.
-- When output is noisy, extract useful information first, then analyze it.
-
-## Final Result
-
-When complete, use `recon.report_generate` and save its `final_result` with `save_session_result`. The frontend result page reads the saved session result, and the module page exposes the workflow/function split through `scan_workflow_matrix`.
+- Do not scan outside `authorized_scope`.
+- Do not run active steps without the exact confirmation token.
+- Do not treat candidate findings as verified vulnerabilities.
+- Do not print secrets, tokens, Auth-Key values, passwords, or credentials.
+- Do not use this module for exploitation, brute force, destructive testing, persistence, or data extraction.
+- Do not keep chaining high-risk functions when the remaining value is unclear or manual verification is the better next step.

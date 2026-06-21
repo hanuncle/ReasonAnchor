@@ -113,9 +113,24 @@ def test_analysis_workspace_can_save_recon_attack_surface_result() -> None:
     analysis_js = Path("web/analysis.js").read_text(encoding="utf-8")
 
     assert "maybeSaveReconFinalResult(currentSession)" in analysis_js
+    assert "recon_final_report" in analysis_js
     assert "recon_attack_surface" in analysis_js
+    assert "buildReconReportedResult" in analysis_js
+    assert "executive_summary" in analysis_js
+    assert "operator_conclusion" in analysis_js
+    assert "unverified_notice" in analysis_js
     assert "/raw-output-map" in analysis_js
     assert "/api/sessions/${encodeURIComponent(session.session_id)}/result" in analysis_js
+
+
+def test_result_page_renders_extended_recon_fields() -> None:
+    result_js = Path("web/result.js").read_text(encoding="utf-8")
+
+    assert "executive_summary" in result_js
+    assert "operator_conclusion" in result_js
+    assert "unverified_notice" in result_js
+    assert "manual verification" in result_js
+    assert "why_now" in result_js
 
 
 def test_raw_data_page_autoloads_session_outputs_from_query_param() -> None:

@@ -19,19 +19,46 @@
     "session_id": "string",
     "module_id": "recon_scan",
     "schema_id": "recon_scan.final_result.v1",
+    "target": {
+      "label": "string",
+      "targets": [
+        "string"
+      ],
+      "authorized_scope": [
+        "string"
+      ],
+      "exclude": [
+        "string"
+      ]
+    },
+    "file": {
+      "filename": "string",
+      "size": "number",
+      "sha256": "string",
+      "file_type": "string"
+    },
     "target_scope": {
       "authorized": "boolean",
       "active_authorized": "boolean",
       "scope_summary": "string",
-      "excluded": ["string"],
-      "limitations": ["string"]
+      "excluded": [
+        "string"
+      ],
+      "limitations": [
+        "string"
+      ]
     },
     "summary": {
       "overall": "string",
       "risk_level": "unknown|low|medium|high",
       "planned_only": "boolean",
       "report_stage": "string",
-      "limitations": ["string"]
+      "executive_summary": "string",
+      "operator_conclusion": "string",
+      "unverified_notice": "string",
+      "limitations": [
+        "string"
+      ]
     },
     "stage_coverage": {
       "scope_validate": "string",
@@ -44,16 +71,24 @@
       "vulnerability_candidate_scan": "string"
     },
     "assets": {
-      "domains": ["string"],
-      "hosts": ["string"],
-      "addresses": ["string"],
+      "domains": [
+        "string"
+      ],
+      "hosts": [
+        "string"
+      ],
+      "addresses": [
+        "string"
+      ],
       "web_endpoints": [
         {
           "url": "string",
           "status_code": "number|string|null",
           "title": "string",
           "webserver": "string",
-          "technologies": ["string"],
+          "technologies": [
+            "string"
+          ],
           "source": "string"
         }
       ],
@@ -91,12 +126,19 @@
           ]
         },
         "verification": "verified|unverified",
+        "confidence": "low|medium|high",
+        "manual_verification_steps": [
+          "string"
+        ],
         "recommended_fix": "string"
       }
     ],
     "recommended_next_steps": [
       {
         "type": "string",
+        "action": "string",
+        "priority": "low|medium|high",
+        "why_now": "string",
         "function_id": "string",
         "params_template": {},
         "reason": "string",
@@ -110,6 +152,9 @@
     "Only summarize explicitly authorized scope.",
     "Keep candidate findings separate from verified vulnerabilities.",
     "Do not include secrets, credentials, tokens, or private API keys.",
-    "Use raw_output_id evidence references when a manual final claim depends on raw details."
+    "Use raw_output_id evidence references when a manual final claim depends on raw details.",
+    "Keep candidate findings separate from verified conclusions in the final narrative.",
+    "Always include an explicit unverified notice when candidate findings are present.",
+    "Recommended next steps must carry both machine-usable parameters and a human-readable action description."
   ]
 }

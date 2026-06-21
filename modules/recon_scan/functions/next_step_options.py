@@ -37,6 +37,9 @@ class ReconNextStepOptionsFunction(AnalysisFunction):
                 options.append(
                     {
                         "type": "manual_review",
+                        "action": "Request manual verification",
+                        "priority": "high",
+                        "why_now": "Candidate findings exist and should be verified before any vulnerability claim is made.",
                         "function_id": "",
                         "params_template": {},
                         "reason": str(item.get("reason") or ""),
@@ -48,6 +51,9 @@ class ReconNextStepOptionsFunction(AnalysisFunction):
             options.append(
                 {
                     "type": "run_function",
+                    "action": self._action(function_id),
+                    "priority": self._priority(function_id),
+                    "why_now": self._why_now(function_id),
                     "function_id": function_id,
                     "params_template": self._params_template(function_id),
                     "reason": str(item.get("reason") or ""),
@@ -87,3 +93,35 @@ class ReconNextStepOptionsFunction(AnalysisFunction):
         if function_id == "recon.report_generate":
             return {"report_stage": "final"}
         return {}
+
+    @staticmethod
+    def _action(function_id: str) -> str:
+        if function_id == "recon.service_identify":
+            return "Run service fingerprinting"
+        if function_id == "recon.web_light_discover":
+            return "Run lightweight web discovery"
+        if function_id == "recon.vulnerability_candidate_scan":
+            return "Run candidate vulnerability scan"
+        if function_id == "recon.report_generate":
+            return "Finalize report"
+        return "Run selected follow-up"
+
+    @staticmethod
+    def _priority(function_id: str) -> str:
+        if function_id == "recon.vulnerability_candidate_scan":
+            return "high"
+        if function_id == "recon.report_generate":
+            return "low"
+        return "medium"
+
+    @staticmethod
+    def _why_now(function_id: str) -> str:
+        if function_id == "recon.service_identify":
+            return "Open ports are present, and service fingerprints will clarify exposure."
+        if function_id == "recon.web_light_discover":
+            return "Live web endpoints exist, and lightweight discovery can expand the visible attack surface."
+        if function_id == "recon.vulnerability_candidate_scan":
+            return "Live web targets exist, and a scoped candidate scan can surface items for manual verification."
+        if function_id == "recon.report_generate":
+            return "No higher-value automated step remains, so the session is ready to be summarized."
+        return "This step is currently the safest useful way to increase evidence quality."

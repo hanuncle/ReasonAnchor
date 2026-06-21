@@ -47,7 +47,7 @@ Core goals:
 - **Controlled code iteration**: after user approval, useful code, raw sorters, schemas, and knowledge can be written back into the selected module.
 - **Module-owned frontend pages**: modules can declare knowledge-backed pages in `module.json.ui.pages`, while rendering stays inside platform-owned frontend components.
 - **Result persistence**: raw outputs, AI-facing outputs, and final summaries are saved under the current session.
-- **Built-in reconnaissance module**: see [Recon Scan Module](modules/recon_scan/README.md) for the active/passive target reconnaissance module design.
+- **Built-in reconnaissance module**: see [Recon Scan Module](modules/recon_scan/README.md) for the active/passive target reconnaissance module design, the AI-gated follow-up loop, and the final report flow.
 
 ## Install And Run
 
@@ -122,6 +122,17 @@ A complete analysis usually follows this order:
 8. When evidence detail is needed, Codex calls `get_raw_output_map` first, then fetches only the necessary `raw_output_id`.
 9. Codex writes the final summary according to the selected module schema and saves it with `save_session_result`.
 
+For the built-in `recon_scan` module, the preferred finalization path is:
+
+1. run workflow or one follow-up function
+2. inspect `ai_output`
+3. refresh `recon.attack_surface_summarize`
+4. refresh `recon.next_step_options`
+5. generate `recon_final_report` with `recon.report_generate`
+6. save `recon_final_report.data.final_result` with `save_session_result`
+
+If the structured report result is unavailable, the frontend-compatible fallback can still be built from `recon_attack_surface`.
+
 ### 2. Module Selection And Creation
 
 Codex can reuse existing modules or create a new module:
@@ -141,6 +152,14 @@ Codex can choose either execution mode:
 
 - **Workflow mode**: best for stable and repeatable tasks. Codex selects or creates a workflow, the platform runs multiple functions, Codex analyzes the returned `ai_output`, and Codex continues with focused follow-up analysis when needed.
 - **Single-function mode**: best for quick exploration or additional evidence. Codex can call `run_function` in the current session.
+
+The built-in `recon_scan` module uses an AI-gated single-step follow-up pattern outside the default workflow. After the basic workflow, AI should normally run at most one of:
+
+- `recon.service_identify`
+- `recon.web_light_discover`
+- `recon.vulnerability_candidate_scan`
+
+Then it should re-summarize and refresh next-step options before making another decision.
 
 Workflows reduce repeated planning and explanation overhead because common multi-step function calls are saved as reusable templates.
 
@@ -165,6 +184,8 @@ data/sessions/<session_id>/result/result.json
 ```
 
 The frontend result page reads this session result. If the page is empty, the final result has usually not been saved yet.
+
+For `recon_scan`, the analysis workbench prefers the saved `recon_final_report` result when it exists. If that result has not been generated yet, it can fall back to the attack-surface summary result so the operator can still inspect the current state.
 
 ### 6. Common Issues
 
@@ -222,6 +243,12 @@ modules/<module_id>/
     final_result_schema.json
   config_files/
 ```
+
+Modules may also keep additional supporting Skill documents under `skill/` when the main `SKILL.md` needs to reference narrower guidance. The current `recon_scan` module uses this pattern for:
+
+- controlled execution rules
+- scan-strategy guidance
+- final-result writing guidance
 
 Important rules:
 
@@ -319,6 +346,20 @@ The frontend result page reads the saved session result from:
 ```text
 /api/sessions/<session_id>/result
 ```
+
+The built-in `recon_scan` schema keeps the original top-level compatibility fields while also supporting a richer operator-facing report structure, including:
+
+- `target` and `file` compatibility fields
+- `summary.executive_summary`
+- `summary.operator_conclusion`
+- `summary.unverified_notice`
+- `candidate_findings[*].confidence`
+- `candidate_findings[*].manual_verification_steps`
+- `recommended_next_steps[*].action`
+- `recommended_next_steps[*].priority`
+- `recommended_next_steps[*].why_now`
+
+This allows the same saved result to remain machine-friendly while also being easier to review in the frontend.
 
 ### 10. Local Configuration
 
