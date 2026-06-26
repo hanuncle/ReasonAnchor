@@ -18,6 +18,7 @@ Core goals:
 - **Token reduction**: avoid giving the AI every module's context; use `list_modules` then `get_module_skill(module_id)`.
 - **Controlled code iteration**: after user approval, useful code, raw sorters, schemas, and knowledge can be written back into the selected module.
 - **Result persistence**: raw outputs, AI-facing outputs, and final summaries are saved under the current session.
+- **Built-in reconnaissance module**: see [Recon Scan Module](modules/recon_scan/README.md) for the active/passive target reconnaissance module design.
 
 ## Install And Run
 
@@ -74,6 +75,78 @@ tool_timeout_sec = 120
 SECURITY_FUNCTION_PLATFORM_API_BASE = "http://127.0.0.1:8111"
 ```
 
+After writing the configuration, restart Codex so the MCP server is loaded. Use the same Python interpreter for installation and MCP startup. If startup fails with `RuntimeError: mcp package is not installed`, run `python -m pip install -e ".[dev]"` in the project root, then restart Codex again.
+
+## Codex MCP Usage In Practice
+
+Codex is an MCP client, and SecurityFunctionPlatform is the local MCP capability platform. Modules are not tied to Codex; any MCP-capable AI client can use the same platform flow.
+
+### 1. Recommended Flow
+
+A complete analysis usually follows this order:
+
+1. Codex calls `get_platform_skill` to read platform rules.
+2. Codex calls `list_modules` to list available modules.
+3. Codex asks the user to choose a module, unless the user already named one.
+4. Codex calls `get_module_skill(module_id)` to load only the selected module's Skill, playbook, and final result schema.
+5. Codex uploads a sample, creates a target session, or selects an existing session.
+6. Codex selects a workflow, or directly runs one function.
+7. Codex analyzes `ai_output` first.
+8. When evidence detail is needed, Codex calls `get_raw_output_map` first, then fetches only the necessary `raw_output_id`.
+9. Codex writes the final summary according to the selected module schema and saves it with `save_session_result`.
+
+### 2. Module Selection And Creation
+
+Codex can reuse existing modules or create a new module:
+
+- Use `list_modules` to inspect available modules.
+- Use `get_module_template` to inspect the default module layout.
+- Use `create_module` to create a new module in the default format.
+- Use `get_module_detail(module_id)` to inspect functions, workflows, config fields, and validation state.
+- Use `get_module_ui(module_id)` to inspect module-specific frontend page declarations.
+- Use `get_module_knowledge(module_id, knowledge_type)` to fetch one declared knowledge asset for a module page.
+
+Modules carry specific capabilities, such as an analysis domain, tool wrapper, report format, or knowledge asset. Platform Skill should not hardcode module contents; Codex should discover modules first, then load the selected module context.
+
+### 3. Workflow Or Single Function
+
+Codex can choose either execution mode:
+
+- **Workflow mode**: best for stable and repeatable tasks. Codex selects or creates a workflow, the platform runs multiple functions, Codex analyzes the returned `ai_output`, and Codex continues with focused follow-up analysis when needed.
+- **Single-function mode**: best for quick exploration or additional evidence. Codex can call `run_function` in the current session.
+
+Workflows reduce repeated planning and explanation overhead because common multi-step function calls are saved as reusable templates.
+
+### 4. Code Writing And Self-Iteration
+
+Codex should not modify code by default. Module code writing and self-iteration require clear user approval:
+
+- Before analysis starts, Codex asks whether module self-iteration is allowed for this task.
+- After the final result is saved, Codex asks again before applying any useful iteration.
+- After approval, Codex edits only the selected module, such as `functions/`, `config_files/`, `config_fields/`, or `skill/`.
+- Codex does not self-iterate platform code during sample analysis.
+- Useful temporary code can become a module function; noisy output should usually be handled by improving the module raw sorter.
+
+The goal of iteration is more stable module output, smaller AI context, and better future results.
+
+### 5. Final Result Saving
+
+Codex should not only return the conclusion in chat. At the end of analysis, it should produce the final summary according to the selected module's `final_result_schema` and save it with `save_session_result`:
+
+```text
+data/sessions/<session_id>/result/result.json
+```
+
+The frontend result page reads this session result. If the page is empty, the final result has usually not been saved yet.
+
+### 6. Common Issues
+
+- **MCP startup fails**: check whether the same Python environment installed the project dependencies, especially the `mcp` package.
+- **Module does not appear**: check whether `modules/<module_id>/module.json` exists and is valid.
+- **Workflow cannot run**: check whether both a session and a workflow have been selected.
+- **Config fields are empty**: fill tool paths, API keys, tokens, and other local values in the config page; secret values are redacted in the UI.
+- **Raw output is too large**: do not fetch everything by default; inspect `ai_output` first, then query specific raw output by `raw_output_id`.
+
 ## Platform Function Guide
 
 ### 1. Platform Skill Loading
@@ -120,6 +193,12 @@ modules/<module_id>/
     final_result_schema.json
   config_files/
 ```
+
+Modules may also keep additional supporting Skill documents under `skill/` when the main `SKILL.md` needs to reference narrower guidance. The current `recon_scan` module uses this pattern for:
+
+- controlled execution rules
+- scan-strategy guidance
+- final-result writing guidance
 
 Important rules:
 
@@ -188,6 +267,20 @@ The frontend result page reads the saved session result from:
 ```text
 /api/sessions/<session_id>/result
 ```
+
+The built-in `recon_scan` schema keeps the original top-level compatibility fields while also supporting a richer operator-facing report structure, including:
+
+- `target` and `file` compatibility fields
+- `summary.executive_summary`
+- `summary.operator_conclusion`
+- `summary.unverified_notice`
+- `candidate_findings[*].confidence`
+- `candidate_findings[*].manual_verification_steps`
+- `recommended_next_steps[*].action`
+- `recommended_next_steps[*].priority`
+- `recommended_next_steps[*].why_now`
+
+This allows the same saved result to remain machine-friendly while also being easier to review in the frontend.
 
 ### 8. Local Configuration
 

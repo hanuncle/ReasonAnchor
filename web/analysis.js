@@ -833,11 +833,58 @@ function linkedPage(label, href) {
 }
 
 async function maybeSaveReconFinalResult(session) {
+  if (!sessionHasResultKey(session, "recon_attack_surface") && !sessionHasResultKey(session, "recon_final_report")) {
+    return null;
+  }
+  const savedReport = await saveReconReportResultFromSession(session);
+  if (savedReport) {
+    return savedReport;
+  }
+  const savedReportFromRaw = await saveReconReportResultFromRawOutput(session);
+  if (savedReportFromRaw) {
+    return savedReportFromRaw;
+  }
   if (!sessionHasResultKey(session, "recon_attack_surface")) {
     return null;
   }
   const saved = await saveReconFinalResultFromSession(session);
   return saved || saveReconFinalResultFromRawOutput(session);
+}
+
+async function saveReconReportResultFromSession(session) {
+  const report = session?.raw_outputs?.recon_final_report;
+  const data = report?.data?.final_result || {};
+  if (!isReconFinalReportData(data)) {
+    return null;
+  }
+  return request(`/api/sessions/${encodeURIComponent(session.session_id)}/result`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(buildReconReportedResult(session, data)),
+  });
+}
+
+async function saveReconReportResultFromRawOutput(session) {
+  if (!session?.session_id) {
+    return null;
+  }
+  const map = await request(`/api/sessions/${encodeURIComponent(session.session_id)}/raw-output-map`);
+  const item = (map.items || []).find((rawItem) => rawItem.result_key === "recon_final_report");
+  if (!item?.raw_output_id) {
+    return null;
+  }
+  const detail = await request(
+    `/api/sessions/${encodeURIComponent(session.session_id)}/raw-output/${encodeURIComponent(item.raw_output_id)}`,
+  );
+  const data = detail.item?.output?.data?.final_result || {};
+  if (!isReconFinalReportData(data)) {
+    return null;
+  }
+  return request(`/api/sessions/${encodeURIComponent(session.session_id)}/result`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(buildReconReportedResult(session, data)),
+  });
 }
 
 async function saveReconFinalResultFromSession(session) {
@@ -882,15 +929,11 @@ function buildReconFinalResult(session, data) {
     session_id: session.session_id,
     module_id: "recon_scan",
     schema_id: "recon_scan.final_result.v1",
-    target: session.target || {},
-    file: session.sample || {},
+    target: data.target || session.target || {},
+    file: data.file || session.sample || {},
     target_scope: data.target_scope || {},
-    summary: data.summary || {
-      overall: "Recon workflow completed, but no summary was extracted.",
-      risk_level: "unknown",
-      planned_only: false,
-      limitations: [],
-    },
+    summary: buildReconSummary(data.summary || {}),
+    stage_coverage: data.stage_coverage || {},
     assets: data.assets || {
       domains: [],
       hosts: [],
@@ -899,8 +942,101 @@ function buildReconFinalResult(session, data) {
       services: [],
     },
     candidate_findings: Array.isArray(data.candidate_findings) ? data.candidate_findings : [],
-    recommended_next_steps: Array.isArray(data.recommended_next_steps) ? data.recommended_next_steps : [],
+    recommended_next_steps: Array.isArray(data.recommended_next_steps)
+      ? data.recommended_next_steps
+      : mapNextStepCandidates(data.next_step_candidates || []),
   };
+}
+
+function buildReconReportedResult(session, data) {
+  return {
+    ...buildReconFinalResult(session, data),
+    ...data,
+    session_id: session.session_id,
+    target: data.target || session.target || {},
+    file: data.file || session.sample || {},
+  };
+}
+
+function buildReconSummary(summary) {
+  return {
+    overall: summary.overall || "Recon workflow completed, but no summary was extracted.",
+    risk_level: summary.risk_level || "unknown",
+    planned_only: Boolean(summary.planned_only),
+    report_stage: summary.report_stage || "current",
+    executive_summary: summary.executive_summary || summary.overall || "",
+    operator_conclusion: summary.operator_conclusion || "",
+    unverified_notice: summary.unverified_notice || "",
+    limitations: Array.isArray(summary.limitations) ? summary.limitations : [],
+  };
+}
+
+function mapNextStepCandidates(candidates) {
+  if (!Array.isArray(candidates)) {
+    return [];
+  }
+  return candidates
+    .filter((item) => item && typeof item === "object")
+    .map((item) => {
+      const functionId = item.function_id || "";
+      return {
+        type: functionId ? "run_function" : "manual_review",
+        action: actionForStep(functionId),
+        priority: priorityForStep(functionId, item.risk || ""),
+        why_now: item.reason || whyNowForStep(functionId),
+        function_id: functionId,
+        params_template: {},
+        reason: item.reason || "",
+        risk: item.risk || "manual",
+        requires_human_confirmation: item.requires_human_confirmation !== false,
+      };
+    });
+}
+
+function actionForStep(functionId) {
+  if (functionId === "recon.service_identify") {
+    return "Run service fingerprinting";
+  }
+  if (functionId === "recon.web_light_discover") {
+    return "Run lightweight web discovery";
+  }
+  if (functionId === "recon.vulnerability_candidate_scan") {
+    return "Run candidate vulnerability scan";
+  }
+  if (functionId === "recon.report_generate") {
+    return "Finalize report";
+  }
+  return "Request manual verification";
+}
+
+function priorityForStep(functionId, risk) {
+  if (functionId === "recon.report_generate") {
+    return "low";
+  }
+  if (functionId === "recon.vulnerability_candidate_scan" || risk === "high") {
+    return "high";
+  }
+  return functionId ? "medium" : "high";
+}
+
+function whyNowForStep(functionId) {
+  if (functionId === "recon.service_identify") {
+    return "Open ports are present, and service fingerprints will improve the exposure picture.";
+  }
+  if (functionId === "recon.web_light_discover") {
+    return "Live web endpoints exist, and lightweight discovery can expand visible attack surface details.";
+  }
+  if (functionId === "recon.vulnerability_candidate_scan") {
+    return "Live web endpoints exist, and a scoped candidate scan may surface items for manual verification.";
+  }
+  if (functionId === "recon.report_generate") {
+    return "No higher-value automated step remains, so the session can be finalized.";
+  }
+  return "Manual verification is the safest next step for the current evidence.";
+}
+
+function isReconFinalReportData(data) {
+  return Boolean(data && typeof data === "object" && data.summary && data.assets && data.target_scope);
 }
 
 function isReconAttackSurfaceData(data) {
@@ -963,12 +1099,16 @@ function renderFinalResult(result) {
 function renderReconFinalResult(result) {
   const assets = result.assets || {};
   const targetScope = result.target_scope || {};
+  const summary = result.summary || {};
   const section = document.createElement("article");
   section.className = "result-block";
   section.innerHTML = `
     <h3>${escapeHtml(result.target?.label || result.file?.filename || result.session_id || "target")}</h3>
-    <p>${escapeHtml(result.summary?.risk_level || "unknown")} | ${escapeHtml(result.summary?.overall || "")}</p>
+    <p>${escapeHtml(summary.risk_level || "unknown")} | ${escapeHtml(summary.overall || "")}</p>
     <dl class="details">
+      <dt>executive summary</dt><dd>${escapeHtml(summary.executive_summary || "")}</dd>
+      <dt>operator conclusion</dt><dd>${escapeHtml(summary.operator_conclusion || "")}</dd>
+      <dt>unverified notice</dt><dd>${escapeHtml(summary.unverified_notice || "")}</dd>
       <dt>authorized</dt><dd>${escapeHtml(targetScope.authorized ?? "")}</dd>
       <dt>active authorized</dt><dd>${escapeHtml(targetScope.active_authorized ?? "")}</dd>
       <dt>scope</dt><dd>${escapeHtml(targetScope.scope_summary || `allowed: ${targetScope.allowed_count ?? ""}, out_of_scope: ${targetScope.out_of_scope_count ?? ""}`)}</dd>
@@ -987,16 +1127,27 @@ function renderReconFinalResult(result) {
       <h4>${escapeHtml(finding.title || "Candidate finding")}</h4>
       <dl class="details">
         <dt>severity</dt><dd>${escapeHtml(finding.severity || "unknown")}</dd>
+        <dt>confidence</dt><dd>${escapeHtml(finding.confidence || "low")}</dd>
         <dt>asset</dt><dd>${escapeHtml(finding.affected_asset || "")}</dd>
         <dt>evidence</dt><dd>${escapeHtml(finding.evidence?.summary || "")}</dd>
         <dt>verification</dt><dd>${escapeHtml(finding.verification || "unverified")}</dd>
+        <dt>manual verification</dt><dd>${escapeHtml((finding.manual_verification_steps || []).join("; "))}</dd>
       </dl>
     `;
     section.append(item);
   });
   (result.recommended_next_steps || []).forEach((step) => {
-    const item = document.createElement("p");
-    item.textContent = `${step.action || ""} ${step.reason || ""}`.trim();
+    const item = document.createElement("article");
+    item.className = "item-block";
+    item.innerHTML = `
+      <h4>${escapeHtml(step.action || "Recommended next step")}</h4>
+      <dl class="details">
+        <dt>priority</dt><dd>${escapeHtml(step.priority || "")}</dd>
+        <dt>why now</dt><dd>${escapeHtml(step.why_now || step.reason || "")}</dd>
+        <dt>reason</dt><dd>${escapeHtml(step.reason || "")}</dd>
+        <dt>confirmation</dt><dd>${escapeHtml(step.requires_human_confirmation ?? "")}</dd>
+      </dl>
+    `;
     section.append(item);
   });
   finalResult.append(section);

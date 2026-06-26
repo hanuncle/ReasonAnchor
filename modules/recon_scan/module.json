@@ -52,6 +52,16 @@
       "class_name": "ReconServiceIdentifyFunction"
     },
     {
+      "function_id": "recon.url_inventory",
+      "path": "functions/url_inventory.py",
+      "class_name": "ReconUrlInventoryFunction"
+    },
+    {
+      "function_id": "recon.port_service_merge",
+      "path": "functions/port_service_merge.py",
+      "class_name": "ReconPortServiceMergeFunction"
+    },
+    {
       "function_id": "recon.web_light_discover",
       "path": "functions/web_light_discover.py",
       "class_name": "ReconWebLightDiscoverFunction"

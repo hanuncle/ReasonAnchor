@@ -43,6 +43,9 @@ function renderSummary(summary) {
   summaryDetails.innerHTML = `
     <dt>overall</dt><dd>${escapeHtml(summary.overall || "")}</dd>
     <dt>risk_level</dt><dd>${escapeHtml(summary.risk_level || "unknown")}</dd>
+    <dt>executive_summary</dt><dd>${escapeHtml(summary.executive_summary || "")}</dd>
+    <dt>operator_conclusion</dt><dd>${escapeHtml(summary.operator_conclusion || "")}</dd>
+    <dt>unverified_notice</dt><dd>${escapeHtml(summary.unverified_notice || "")}</dd>
     <dt>limitations</dt><dd>${escapeHtml((summary.limitations || []).join(", "))}</dd>
   `;
 }
@@ -84,6 +87,8 @@ function renderReconResult(result) {
         <dt>evidence</dt><dd>${escapeHtml(finding.evidence?.summary || "")}</dd>
         <dt>sources</dt><dd>${escapeHtml(formatSources(finding.evidence?.sources || []))}</dd>
         <dt>verification</dt><dd>${escapeHtml(finding.verification || "unverified")}</dd>
+        <dt>confidence</dt><dd>${escapeHtml(finding.confidence || "low")}</dd>
+        <dt>manual verification</dt><dd>${escapeHtml((finding.manual_verification_steps || []).join("; "))}</dd>
         <dt>fix</dt><dd>${escapeHtml(finding.recommended_fix || "")}</dd>
       </dl>
     `;
@@ -96,6 +101,8 @@ function renderReconResult(result) {
     article.innerHTML = `
       <h3>${escapeHtml(step.action || "Recommended next step")}</h3>
       <dl class="details">
+        <dt>priority</dt><dd>${escapeHtml(step.priority || "")}</dd>
+        <dt>why_now</dt><dd>${escapeHtml(step.why_now || step.reason || "")}</dd>
         <dt>reason</dt><dd>${escapeHtml(step.reason || "")}</dd>
         <dt>confirmation</dt><dd>${escapeHtml(step.requires_human_confirmation ?? "")}</dd>
       </dl>

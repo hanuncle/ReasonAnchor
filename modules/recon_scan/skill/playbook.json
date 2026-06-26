@@ -7,7 +7,7 @@
   "workflow_strategy": {
     "primary_workflow": "module:recon_scan:recon_basic_collection_flow",
     "safe_prepare_workflow": "module:recon_scan:recon_scope_prepare_flow",
-    "loop_rule": "Run workflow, analyze ai_output, choose one next function, call run_function, re-summarize, refresh next_step_options, repeat, then save final_result."
+    "loop_rule": "Run the selected workflow, inspect ai_output, choose exactly one justified follow-up function, call run_function, re-run recon.attack_surface_summarize, refresh recon.next_step_options, and save the final result with recon.report_generate when no higher-value step remains."
   },
   "safe_default_functions": [
     "recon.scope_validate",
@@ -31,6 +31,21 @@
     "recon.web_light_discover",
     "recon.vulnerability_candidate_scan"
   ],
+  "high_noise_functions": [
+    "recon.web_light_discover",
+    "recon.vulnerability_candidate_scan"
+  ],
+  "follow_up_priority": [
+    "recon.service_identify",
+    "recon.web_light_discover",
+    "recon.vulnerability_candidate_scan"
+  ],
+  "result_generation_preference": {
+    "preferred_function": "recon.report_generate",
+    "preferred_result_key": "recon_final_report",
+    "fallback_result_key": "recon_attack_surface",
+    "save_rule": "Prefer recon_final_report.data.final_result. Fall back to a compatible result built from recon_attack_surface only when the report result is unavailable."
+  },
   "external_functions": [
     "recon.dns_probe",
     "recon.http_probe",
@@ -48,16 +63,46 @@
     "recon.report_generate"
   ],
   "requires_prior_result": {
-    "recon.target_normalize": ["recon_scope"],
-    "recon.dns_probe": ["recon_scope", "recon_targets"],
-    "recon.http_probe": ["recon_scope", "recon_targets"],
-    "recon.port_scan": ["recon_scope", "recon_targets"],
-    "recon.service_identify": ["recon_scope", "recon_targets", "recon_ports"],
-    "recon.web_light_discover": ["recon_scope", "recon_targets", "recon_http"],
-    "recon.vulnerability_candidate_scan": ["recon_scope", "recon_targets", "recon_http"],
-    "recon.attack_surface_summarize": ["recon_scope", "recon_targets"],
-    "recon.next_step_options": ["recon_attack_surface"],
-    "recon.report_generate": ["recon_attack_surface"]
+    "recon.target_normalize": [
+      "recon_scope"
+    ],
+    "recon.dns_probe": [
+      "recon_scope",
+      "recon_targets"
+    ],
+    "recon.http_probe": [
+      "recon_scope",
+      "recon_targets"
+    ],
+    "recon.port_scan": [
+      "recon_scope",
+      "recon_targets"
+    ],
+    "recon.service_identify": [
+      "recon_scope",
+      "recon_targets",
+      "recon_ports"
+    ],
+    "recon.web_light_discover": [
+      "recon_scope",
+      "recon_targets",
+      "recon_http"
+    ],
+    "recon.vulnerability_candidate_scan": [
+      "recon_scope",
+      "recon_targets",
+      "recon_http"
+    ],
+    "recon.attack_surface_summarize": [
+      "recon_scope",
+      "recon_targets"
+    ],
+    "recon.next_step_options": [
+      "recon_attack_surface"
+    ],
+    "recon.report_generate": [
+      "recon_attack_surface"
+    ]
   },
   "decision_rules": [
     {
@@ -74,15 +119,19 @@
     },
     {
       "condition": "basic workflow completed with live ports but no service details",
-      "action": "consider_run_function_recon.service_identify"
+      "action": "prioritize_run_function_recon.service_identify"
     },
     {
-      "condition": "basic workflow completed with live web endpoints",
-      "action": "consider_run_function_recon.web_light_discover_then_recon.vulnerability_candidate_scan"
+      "condition": "basic workflow completed with live web endpoints but no lightweight discovery data",
+      "action": "prioritize_run_function_recon.web_light_discover"
     },
     {
       "condition": "candidate findings exist",
-      "action": "mark_candidate_only_and_require_manual_verification_before_final_vulnerability_claim"
+      "action": "enter_manual_verification_priority_and_keep_findings_candidate_only"
+    },
+    {
+      "condition": "no obvious higher-value next step remains",
+      "action": "generate_recon.report_generate_and_save_final_result"
     }
   ],
   "finalization": {
