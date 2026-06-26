@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 
 from security_function_platform.module_system import ModuleStore
 from security_function_platform.raw_sorting.sorter import sort_raw_output_item
@@ -76,6 +77,39 @@ def test_recon_scan_module_declares_ai_gated_workflows(tmp_path) -> None:
     assert "recon.web_light_discover" not in step_ids
     assert "recon.vulnerability_candidate_scan" not in step_ids
 
+    skill_context = store.get_module_skill("recon_scan")
+    playbook = skill_context["playbook"]
+    assert "CONTROLLED_EXECUTION_SKILL.md" in skill_context["skill"]
+    assert "SCAN_STRATEGY_SKILL.md" in skill_context["skill"]
+    assert "FINAL_RESULT_WRITING_SKILL.md" in skill_context["skill"]
+    assert playbook["high_noise_functions"] == [
+        "recon.web_light_discover",
+        "recon.vulnerability_candidate_scan",
+    ]
+    assert playbook["follow_up_priority"] == [
+        "recon.service_identify",
+        "recon.web_light_discover",
+        "recon.vulnerability_candidate_scan",
+    ]
+    assert playbook["result_generation_preference"]["preferred_function"] == (
+        "recon.report_generate"
+    )
+
+
+def test_recon_supporting_skill_files_exist_and_reference_required_rules() -> None:
+    base = Path("modules/recon_scan/skill")
+    control = (base / "CONTROLLED_EXECUTION_SKILL.md").read_text(encoding="utf-8")
+    strategy = (base / "SCAN_STRATEGY_SKILL.md").read_text(encoding="utf-8")
+    result = (base / "FINAL_RESULT_WRITING_SKILL.md").read_text(encoding="utf-8")
+
+    assert "get_raw_output_map" in control
+    assert "Run at most one AI-gated follow-up function at a time." in control
+    assert "Do not convert candidate findings into verified vulnerabilities" in control
+    assert "recon.attack_surface_summarize" in strategy
+    assert "recon.next_step_options" in strategy
+    assert "Keep candidate findings separate from verified conclusions." in result
+    assert "save_session_result" in result
+
 
 def test_recon_active_functions_block_without_confirmation(tmp_path) -> None:
     functions = _recon_functions(tmp_path)
@@ -140,8 +174,14 @@ def test_recon_basic_collection_outputs_ai_next_step_options(tmp_path) -> None:
     )
     option_ids = {item["function_id"] for item in options.data["options"] if item["function_id"]}
     assert {"recon.service_identify", "recon.web_light_discover", "recon.vulnerability_candidate_scan"} <= option_ids
+    assert options.data["options"][0]["action"] == "Run service fingerprinting"
+    assert options.data["options"][0]["priority"] == "medium"
+    assert options.data["options"][0]["why_now"]
     assert report.data["final_result"]["schema_id"] == "recon_scan.final_result.v1"
     assert report.data["final_result"]["summary"]["report_stage"] == "basic_collection"
+    assert report.data["final_result"]["summary"]["executive_summary"]
+    assert report.data["final_result"]["summary"]["operator_conclusion"]
+    assert report.data["final_result"]["summary"]["unverified_notice"]
 
 
 def test_recon_inventory_helpers_normalize_urls_and_merge_services(tmp_path) -> None:
@@ -335,6 +375,11 @@ def test_recon_single_step_loop_updates_final_report(tmp_path) -> None:
     assert {"url": "https://app.example.com/login", "source": "katana"} in surface.data["assets"]["urls"]
     assert surface.data["candidate_findings"][0]["verification"] == "unverified"
     assert report.data["final_result"]["candidate_findings"][0]["title"] == "Exposed Panel"
+    assert report.data["final_result"]["candidate_findings"][0]["confidence"] == "medium"
+    assert report.data["final_result"]["candidate_findings"][0]["manual_verification_steps"]
+    assert report.data["final_result"]["recommended_next_steps"][0]["action"]
+    assert report.data["final_result"]["recommended_next_steps"][0]["priority"]
+    assert report.data["final_result"]["recommended_next_steps"][0]["why_now"]
 
 
 def test_recon_raw_sorting_compacts_stage_output(tmp_path) -> None:

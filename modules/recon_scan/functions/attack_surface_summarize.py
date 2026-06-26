@@ -214,7 +214,7 @@ class ReconAttackSurfaceSummarizeFunction(AnalysisFunction):
             steps.append(
                 {
                     "function_id": "",
-                    "reason": "Candidate findings exist; AI should request manual verification evidence before calling them vulnerabilities.",
+                    "reason": "Candidate findings exist; request manual verification evidence before making any vulnerability claim or continuing with riskier automation.",
                     "risk": "manual",
                     "requires_human_confirmation": True,
                 }

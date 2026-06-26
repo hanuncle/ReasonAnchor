@@ -448,3 +448,70 @@ python -m py_compile security_function_platform/core/function_result.py security
 python -m pytest
 git diff --check
 ```
+
+## Recon Scan 更新说明
+
+以下内容用于补充说明当前内置 `recon_scan` 模块的最新行为，与模块内实际 `skill/`、前端和测试保持一致。
+
+### 1. 推荐收口路径
+
+对于 `recon_scan`，推荐的分析收口顺序是：
+
+1. 运行 workflow 或单步 follow-up 函数
+2. 优先查看 `ai_output`
+3. 刷新 `recon.attack_surface_summarize`
+4. 刷新 `recon.next_step_options`
+5. 通过 `recon.report_generate` 生成 `recon_final_report`
+6. 使用 `save_session_result` 保存 `recon_final_report.data.final_result`
+
+如果结构化报告结果暂时不可用，前端仍可从 `recon_attack_surface` 构造兼容的 fallback 结果。
+
+### 2. AI-Gated 单步 Follow-Up
+
+`recon_scan` 在默认 workflow 之外采用 AI-gated 单步推进模式。完成基础 workflow 后，AI 通常只应在以下函数中选择一个继续：
+
+- `recon.service_identify`
+- `recon.web_light_discover`
+- `recon.vulnerability_candidate_scan`
+
+每执行完一次 follow-up，都应先回到：
+
+- `recon.attack_surface_summarize`
+- `recon.next_step_options`
+
+然后再决定是否继续、停止，或请求人工确认。
+
+### 3. Skill 目录增强
+
+除主入口 `SKILL.md`、`playbook.json` 和 `final_result_schema.json` 外，`recon_scan` 现在还在 `skill/` 目录下维护额外的 supporting Skill 文档，用于拆分更窄的指导职责：
+
+- `CONTROLLED_EXECUTION_SKILL.md`：受控执行、超时处理、噪声提纯、停止条件
+- `SCAN_STRATEGY_SKILL.md`：workflow 选择、follow-up 顺序、继续/停止/确认条件
+- `FINAL_RESULT_WRITING_SKILL.md`：最终总结写法、证据绑定、候选发现与验证结论分离
+
+这种结构仍然不改变平台的 Skill 加载模型。平台入口依然通过 `get_module_skill(module_id)` 返回模块主 Skill、playbook 和最终结果 schema。
+
+### 4. Recon 最终结果结构补充
+
+`recon_scan` 的 `final_result_schema.json` 在保持原有兼容字段的同时，增加了更适合人工审阅和前端展示的字段，包括：
+
+- `target`
+- `file`
+- `summary.executive_summary`
+- `summary.operator_conclusion`
+- `summary.unverified_notice`
+- `candidate_findings[*].confidence`
+- `candidate_findings[*].manual_verification_steps`
+- `recommended_next_steps[*].action`
+- `recommended_next_steps[*].priority`
+- `recommended_next_steps[*].why_now`
+
+这使同一份 `result.json` 既能继续作为机器可保存的结构化结果，也更适合直接在结果页中查看。
+
+### 5. 前端结果读取行为
+
+当前分析工作台与结果页对 `recon_scan` 的读取逻辑是：
+
+- 优先使用 `recon_final_report` 中的结构化 `final_result`
+- 如果该结果还未生成，再回退到 `recon_attack_surface`
+- 结果页会优先展示更完整的结论层、候选发现置信度、人工验证提示，以及下一步建议的优先级与原因
