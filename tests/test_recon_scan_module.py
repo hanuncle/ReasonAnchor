@@ -47,7 +47,7 @@ def test_recon_scan_module_declares_ai_gated_workflows(tmp_path) -> None:
     knowledge = store.get_module_knowledge("recon_scan", "scan_workflow_matrix")
 
     assert validation["valid"] is True
-    assert detail["functions_count"] == 11
+    assert detail["functions_count"] == 13
     assert detail["workflows_count"] == 2
     assert knowledge["items_count"] == 6
     assert {
@@ -66,6 +66,8 @@ def test_recon_scan_module_declares_ai_gated_workflows(tmp_path) -> None:
         "recon.dns_probe",
         "recon.http_probe",
         "recon.port_scan",
+        "recon.url_inventory",
+        "recon.port_service_merge",
         "recon.attack_surface_summarize",
         "recon.next_step_options",
         "recon.report_generate",
@@ -140,6 +142,53 @@ def test_recon_basic_collection_outputs_ai_next_step_options(tmp_path) -> None:
     assert {"recon.service_identify", "recon.web_light_discover", "recon.vulnerability_candidate_scan"} <= option_ids
     assert report.data["final_result"]["schema_id"] == "recon_scan.final_result.v1"
     assert report.data["final_result"]["summary"]["report_stage"] == "basic_collection"
+
+
+def test_recon_inventory_helpers_normalize_urls_and_merge_services(tmp_path) -> None:
+    functions = _recon_functions(tmp_path)
+    context = _authorized_context(functions)
+    context["results"]["recon_http"] = functions["recon.http_probe"].run(
+        context,
+        {"http_output": '{"url":"https://app.example.com/login","status_code":200,"title":"Login"}\n'},
+    ).to_dict()
+    context["results"]["recon_ports"] = functions["recon.port_scan"].run(
+        context,
+        {"port_output": "app.example.com:443\napp.example.com:80\n"},
+    ).to_dict()
+    context["results"]["recon_services"] = functions["recon.service_identify"].run(
+        context,
+        {"service_output": "Nmap scan report for app.example.com\n443/tcp open https nginx\n"},
+    ).to_dict()
+
+    urls = functions["recon.url_inventory"].run(
+        context,
+        {
+            "urls": [
+                "https://APP.example.com/login#top",
+                "https://app.example.com/admin",
+            ]
+        },
+    )
+    merged = functions["recon.port_service_merge"].run(context, {})
+
+    assert urls.status == "success"
+    assert urls.data["counts"] == {"urls": 2, "hosts": 1}
+    assert urls.data["hosts"] == ["app.example.com"]
+    assert urls.data["by_host"][0]["examples"] == [
+        "https://app.example.com/login",
+        "https://app.example.com/admin",
+    ]
+    assert merged.status == "success"
+    assert {
+        "host": "app.example.com",
+        "port": "443",
+        "service": "https",
+        "product": "nginx",
+        "source": "naabu,nmap",
+    } in merged.data["services"]
+    assert merged.data["open_ports_by_host"] == [
+        {"host": "app.example.com", "ports": ["80", "443"]}
+    ]
 
 
 def test_recon_dns_parser_rejects_tool_error_text(tmp_path) -> None:
