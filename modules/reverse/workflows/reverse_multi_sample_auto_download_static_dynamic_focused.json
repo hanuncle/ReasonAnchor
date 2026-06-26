@@ -1,0 +1,86 @@
+{
+  "workflow_id": "reverse_multi_sample_auto_download_static_dynamic_focused",
+  "name": "reverse_multi_sample_auto_download_static_dynamic_focused",
+  "description": "Batch-oriented high-risk workflow for multiple sessions. Each session follows the auto-download, static analysis, broad VMware dynamic analysis, static/dynamic comparison, and one focused dynamic validation target flow. Use with run_batch_workflow or submit_batch_workflow_job and create the cross-sample report after completion.",
+  "tags": ["reverse", "multi-sample", "batch", "malwarebazaar", "static", "dynamic", "focused-validation"],
+  "risk": "high",
+  "network": true,
+  "config_required": true,
+  "default_safe": false,
+  "workflow": {
+    "name": "reverse_multi_sample_auto_download_static_dynamic_focused",
+    "steps": [
+      {
+        "function_id": "ti.malwarebazaar.download_sample",
+        "params": {
+          "confirm_download": "I_UNDERSTAND_DOWNLOAD_MALWARE_SAMPLE",
+          "query": "get_recent",
+          "selector": "100",
+          "allowed_file_types": ["exe"],
+          "exclude_keywords": ["wannacry", "ransom", "ransomware", "worm"],
+          "max_download_bytes": 8388608
+        }
+      },
+      {"function_id": "hash.compute", "params": {}},
+      {"function_id": "file.type_detect", "params": {}},
+      {"function_id": "file.multi_format_parse", "params": {}},
+      {"function_id": "file.byte_stats", "params": {}},
+      {"function_id": "pe.deep_parse", "params": {}},
+      {"function_id": "strings.extract", "params": {"min_length": 4, "max_strings": 5000}},
+      {"function_id": "strings.enhanced_extract", "params": {"min_length": 4, "max_strings": 5000}},
+      {"function_id": "ioc.extract", "params": {}},
+      {"function_id": "packer.detect_enhanced", "params": {}},
+      {"function_id": "behavior.map_static", "params": {}},
+      {"function_id": "attack.map_static", "params": {}},
+      {"function_id": "ti.malwarebazaar.hash_lookup", "params": {}},
+      {"function_id": "ti.virustotal.hash_lookup", "params": {}},
+      {"function_id": "ti.virustotal.behaviour_summary", "params": {}},
+      {
+        "function_id": "dynamic.vm_preflight",
+        "params": {
+          "require_guest_credentials": true
+        }
+      },
+      {"function_id": "dynamic.vm_status", "params": {}},
+      {
+        "function_id": "dynamic.vm_restore_snapshot",
+        "params": {
+          "confirm_restore": "I_UNDERSTAND_RESTORE_VM_SNAPSHOT",
+          "stop_if_running": true
+        }
+      },
+      {"function_id": "dynamic.vm_upload_sample", "params": {}},
+      {
+        "function_id": "dynamic.vm_run_sample",
+        "params": {
+          "confirm_execute": "I_UNDERSTAND_RUN_SAMPLE_IN_VM",
+          "duration_seconds": 60
+        }
+      },
+      {"function_id": "dynamic.vm_collect_sysmon", "params": {"last_minutes": 60}},
+      {"function_id": "dynamic.vm_save_snapshot", "params": {}},
+      {
+        "function_id": "dynamic.vm_restore_snapshot",
+        "params": {
+          "confirm_restore": "I_UNDERSTAND_RESTORE_VM_SNAPSHOT",
+          "stop_if_running": true
+        }
+      },
+      {"function_id": "behavior.map_dynamic", "params": {}},
+      {"function_id": "validation.compare_static_dynamic", "params": {}},
+      {"function_id": "validation.plan_focused_dynamic", "params": {}},
+      {
+        "function_id": "dynamic.vm_validate_behavior",
+        "params": {
+          "confirm_execute": "I_UNDERSTAND_RUN_FOCUSED_BEHAVIOR_VALIDATION_IN_VM",
+          "confirm_restore": "I_UNDERSTAND_RESTORE_VM_SNAPSHOT",
+          "restore_before": true,
+          "restore_after": true,
+          "save_snapshot_after": true,
+          "duration_seconds": 30,
+          "last_minutes": 30
+        }
+      }
+    ]
+  }
+}

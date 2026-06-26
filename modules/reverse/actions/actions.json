@@ -1,0 +1,472 @@
+{
+  "schema_id": "reverse.actions.v1",
+  "module_id": "reverse",
+  "actions": [
+    {
+      "id": "reverse.basic_identify",
+      "label": "Basic Identify",
+      "type": "function_group",
+      "description": "Compute hashes, detect file type, parse common formats, and collect byte statistics.",
+      "requires_session": true,
+      "steps": [
+        {"function_id": "hash.compute", "params": {}},
+        {"function_id": "file.type_detect", "params": {}},
+        {"function_id": "file.multi_format_parse", "params": {}},
+        {"function_id": "file.byte_stats", "params": {}}
+      ],
+      "allowed_next_actions": [
+        "reverse.static_feature_extract",
+        "reverse.vm_preflight",
+        "reverse.generate_report"
+      ],
+      "risk": "low",
+      "network": false,
+      "config_required": false,
+      "default_safe": true
+    },
+    {
+      "id": "reverse.static_feature_extract",
+      "label": "Static Feature Extract",
+      "type": "function_group",
+      "description": "Extract PE, string, IOC, and packer evidence for static behavior analysis.",
+      "requires_session": true,
+      "requires_results": [
+        "hash",
+        "file_type",
+        "multi_format_parser",
+        "byte_stats"
+      ],
+      "steps": [
+        {"function_id": "pe.deep_parse", "params": {}},
+        {"function_id": "strings.extract", "params": {"min_length": 4, "max_strings": 5000}},
+        {"function_id": "strings.enhanced_extract", "params": {"min_length": 4, "max_strings": 5000}},
+        {"function_id": "ioc.extract", "params": {}},
+        {"function_id": "packer.detect_enhanced", "params": {}}
+      ],
+      "allowed_next_actions": [
+        "reverse.static_behavior_mapping",
+        "reverse.vm_preflight",
+        "reverse.ida_function_level_analysis",
+        "reverse.generate_report"
+      ],
+      "risk": "low",
+      "network": false,
+      "config_required": false,
+      "default_safe": true
+    },
+    {
+      "id": "reverse.static_behavior_mapping",
+      "label": "Static Behavior Mapping",
+      "type": "function_group",
+      "description": "Map extracted static evidence to behavior categories and ATT&CK techniques.",
+      "requires_session": true,
+      "requires_results": [
+        "pe_deep_parse",
+        "strings",
+        "enhanced_strings",
+        "packer_detection"
+      ],
+      "steps": [
+        {"function_id": "behavior.map_static", "params": {}},
+        {"function_id": "attack.map_static", "params": {}}
+      ],
+      "allowed_next_actions": [
+        "reverse.vm_preflight",
+        "reverse.ida_function_level_analysis",
+        "reverse.generate_report"
+      ],
+      "risk": "low",
+      "network": false,
+      "config_required": false,
+      "default_safe": true
+    },
+    {
+      "id": "reverse.vm_preflight",
+      "label": "VM Preflight",
+      "type": "function_group",
+      "description": "Check VMware and guest credential readiness before any dynamic sample execution.",
+      "requires_session": true,
+      "requires_config": [
+        "vmware.vmrun_path",
+        "vmware.vmx_path",
+        "vmware.vm_password",
+        "vmware.guest_user",
+        "vmware.guest_password"
+      ],
+      "steps": [
+        {"function_id": "dynamic.vm_preflight", "params": {"require_guest_credentials": true}},
+        {"function_id": "dynamic.vm_status", "params": {}}
+      ],
+      "allowed_next_actions": [
+        "reverse.vm_restore",
+        "reverse.generate_report"
+      ],
+      "risk": "medium",
+      "network": false,
+      "config_required": true,
+      "default_safe": false
+    },
+    {
+      "id": "reverse.vm_restore",
+      "label": "VM Restore",
+      "type": "function_group",
+      "description": "Restore the configured VMware snapshot as a standalone dynamic-analysis step.",
+      "requires_session": true,
+      "requires_results": [
+        "dynamic_vm_preflight"
+      ],
+      "requires_config": [
+        "vmware.vmrun_path",
+        "vmware.vmx_path",
+        "vmware.vm_password",
+        "vmware.guest_user",
+        "vmware.guest_password"
+      ],
+      "requires_approvals": [
+        "confirm_restore"
+      ],
+      "approval_params": {
+        "confirm_restore": "I_UNDERSTAND_RESTORE_VM_SNAPSHOT"
+      },
+      "steps": [
+        {"function_id": "dynamic.vm_restore_snapshot", "params": {"stop_if_running": true}}
+      ],
+      "allowed_next_actions": [
+        "reverse.vm_upload_sample",
+        "reverse.generate_report"
+      ],
+      "risk": "high",
+      "network": false,
+      "config_required": true,
+      "default_safe": false,
+      "long_running": true,
+      "estimated_duration_seconds": 45,
+      "preferred_execution_mode": "job"
+    },
+    {
+      "id": "reverse.vm_upload_sample",
+      "label": "VM Upload Sample",
+      "type": "function_group",
+      "description": "Upload the current sample into the restored VMware guest as a standalone step.",
+      "requires_session": true,
+      "requires_results": [
+        "dynamic_vm_preflight",
+        "dynamic_vm_restore"
+      ],
+      "requires_config": [
+        "vmware.vmrun_path",
+        "vmware.vmx_path",
+        "vmware.vm_password",
+        "vmware.guest_user",
+        "vmware.guest_password"
+      ],
+      "steps": [
+        {"function_id": "dynamic.vm_upload_sample", "params": {"timeout_seconds": 45}}
+      ],
+      "allowed_next_actions": [
+        "reverse.vm_run_sample",
+        "reverse.generate_report"
+      ],
+      "risk": "high",
+      "network": false,
+      "config_required": true,
+      "default_safe": false,
+      "long_running": true,
+      "estimated_duration_seconds": 30,
+      "preferred_execution_mode": "job"
+    },
+    {
+      "id": "reverse.vm_run_sample",
+      "label": "VM Run Sample",
+      "type": "function_group",
+      "description": "Execute the uploaded sample in the VMware guest for the configured observation window.",
+      "requires_session": true,
+      "requires_results": [
+        "dynamic_vm_preflight",
+        "dynamic_vm_upload"
+      ],
+      "requires_config": [
+        "vmware.vmrun_path",
+        "vmware.vmx_path",
+        "vmware.vm_password",
+        "vmware.guest_user",
+        "vmware.guest_password"
+      ],
+      "requires_approvals": [
+        "confirm_execute"
+      ],
+      "approval_params": {
+        "confirm_execute": "I_UNDERSTAND_RUN_SAMPLE_IN_VM"
+      },
+      "steps": [
+        {"function_id": "dynamic.vm_run_sample", "params": {"duration_seconds": 60}}
+      ],
+      "allowed_next_actions": [
+        "reverse.vm_collect_telemetry",
+        "reverse.generate_report"
+      ],
+      "risk": "high",
+      "network": false,
+      "config_required": true,
+      "default_safe": false,
+      "long_running": true,
+      "estimated_duration_seconds": 75,
+      "preferred_execution_mode": "job"
+    },
+    {
+      "id": "reverse.vm_collect_telemetry",
+      "label": "VM Collect Telemetry",
+      "type": "function_group",
+      "description": "Collect Sysmon telemetry after VM sample execution as a standalone step.",
+      "requires_session": true,
+      "requires_results": [
+        "dynamic_vm_preflight",
+        "dynamic_vm_run"
+      ],
+      "requires_config": [
+        "vmware.vmrun_path",
+        "vmware.vmx_path",
+        "vmware.vm_password",
+        "vmware.guest_user",
+        "vmware.guest_password"
+      ],
+      "steps": [
+        {"function_id": "dynamic.vm_collect_sysmon", "params": {"last_minutes": 60}}
+      ],
+      "allowed_next_actions": [
+        "reverse.dynamic_behavior_mapping",
+        "reverse.generate_report"
+      ],
+      "risk": "medium",
+      "network": false,
+      "config_required": true,
+      "default_safe": false,
+      "long_running": true,
+      "estimated_duration_seconds": 45,
+      "preferred_execution_mode": "job"
+    },
+    {
+      "id": "reverse.dynamic_behavior_mapping",
+      "label": "Dynamic Behavior Mapping",
+      "type": "function_group",
+      "description": "Map collected dynamic telemetry to behavior categories.",
+      "requires_session": true,
+      "requires_results": [
+        "dynamic_telemetry"
+      ],
+      "steps": [
+        {"function_id": "behavior.map_dynamic", "params": {}}
+      ],
+      "allowed_next_actions": [
+        "reverse.static_dynamic_compare",
+        "reverse.generate_report"
+      ],
+      "risk": "low",
+      "network": false,
+      "config_required": false,
+      "default_safe": true
+    },
+    {
+      "id": "reverse.dynamic_observe",
+      "label": "Dynamic Observe",
+      "type": "function_group",
+      "description": "Legacy combined dynamic action. Prefer the smaller VM Restore -> VM Upload -> VM Run -> VM Collect -> Dynamic Behavior Mapping action chain, or submit this action as a job.",
+      "requires_session": true,
+      "requires_results": [
+        "dynamic_vm_preflight"
+      ],
+      "requires_config": [
+        "vmware.vmrun_path",
+        "vmware.vmx_path",
+        "vmware.vm_password",
+        "vmware.guest_user",
+        "vmware.guest_password"
+      ],
+      "requires_approvals": [
+        "confirm_restore",
+        "confirm_execute"
+      ],
+      "approval_params": {
+        "confirm_restore": "I_UNDERSTAND_RESTORE_VM_SNAPSHOT",
+        "confirm_execute": "I_UNDERSTAND_RUN_SAMPLE_IN_VM"
+      },
+      "steps": [
+        {"function_id": "dynamic.vm_restore_snapshot", "params": {"stop_if_running": true}},
+        {"function_id": "dynamic.vm_upload_sample", "params": {"timeout_seconds": 45}},
+        {"function_id": "dynamic.vm_run_sample", "params": {"duration_seconds": 60}},
+        {"function_id": "dynamic.vm_collect_sysmon", "params": {"last_minutes": 60}},
+        {"function_id": "behavior.map_dynamic", "params": {}}
+      ],
+      "allowed_next_actions": [
+        "reverse.static_dynamic_compare",
+        "reverse.generate_report"
+      ],
+      "risk": "high",
+      "network": false,
+      "config_required": true,
+      "default_safe": false,
+      "long_running": true,
+      "estimated_duration_seconds": 180,
+      "preferred_execution_mode": "job"
+    },
+    {
+      "id": "reverse.static_dynamic_compare",
+      "label": "Static Dynamic Compare",
+      "type": "function_group",
+      "description": "Compare static and dynamic behavior mapping, then plan focused validation targets.",
+      "requires_session": true,
+      "requires_results": [
+        "static_behavior_map",
+        "dynamic_behavior_map"
+      ],
+      "steps": [
+        {"function_id": "validation.compare_static_dynamic", "params": {}},
+        {"function_id": "validation.plan_focused_dynamic", "params": {}}
+      ],
+      "allowed_next_actions": [
+        "reverse.focused_validation",
+        "reverse.generate_report"
+      ],
+      "risk": "low",
+      "network": false,
+      "config_required": false,
+      "default_safe": true
+    },
+    {
+      "id": "reverse.focused_validation",
+      "label": "Focused Validation",
+      "type": "function_group",
+      "description": "Run one focused validation target in the VMware guest and collect behavior-specific telemetry.",
+      "requires_session": true,
+      "requires_results": [
+        "dynamic_vm_preflight",
+        "focused_dynamic_validation_plan"
+      ],
+      "requires_config": [
+        "vmware.vmrun_path",
+        "vmware.vmx_path",
+        "vmware.vm_password",
+        "vmware.guest_user",
+        "vmware.guest_password"
+      ],
+      "requires_approvals": [
+        "confirm_restore",
+        "confirm_execute"
+      ],
+      "approval_params": {
+        "confirm_restore": "I_UNDERSTAND_RESTORE_VM_SNAPSHOT",
+        "confirm_execute": "I_UNDERSTAND_RUN_FOCUSED_BEHAVIOR_VALIDATION_IN_VM"
+      },
+      "steps": [
+        {
+          "function_id": "dynamic.vm_validate_behavior",
+          "params": {
+            "restore_before": true,
+            "restore_after": true,
+            "duration_seconds": 30,
+            "last_minutes": 30
+          }
+        }
+      ],
+      "allowed_next_actions": [
+        "reverse.generate_report"
+      ],
+      "risk": "high",
+      "network": false,
+      "config_required": true,
+      "default_safe": false
+    },
+    {
+      "id": "reverse.ida_function_level_analysis",
+      "label": "IDA Function-Level Analysis",
+      "type": "function_group",
+      "description": "Use configured IDA automation to enrich function-level behavior analysis and produce focused function targets.",
+      "requires_session": true,
+      "requires_results": [
+        "static_behavior_map"
+      ],
+      "requires_config": [
+        "ida.path"
+      ],
+      "steps": [
+        {"function_id": "tool.ida_function_analyze", "params": {}},
+        {"function_id": "tool.ida_function_features", "params": {}},
+        {"function_id": "validation.compare_static_dynamic_function", "params": {}},
+        {"function_id": "validation.plan_focused_function_level", "params": {}},
+        {"function_id": "tool.focused_function_level_analysis", "params": {}}
+      ],
+      "allowed_next_actions": [
+        "reverse.propose_knowledge_update",
+        "reverse.generate_report",
+        "reverse.cleanup_local_sample"
+      ],
+      "risk": "medium",
+      "network": false,
+      "config_required": true,
+      "default_safe": false
+    },
+    {
+      "id": "reverse.cleanup_local_sample",
+      "label": "Cleanup Local Sample",
+      "type": "function_group",
+      "description": "Delete local host sample copies and MalwareBazaar quarantine paths after explicit confirmation.",
+      "requires_session": true,
+      "requires_approvals": [
+        "confirm_delete"
+      ],
+      "approval_params": {
+        "confirm_delete": "I_UNDERSTAND_DELETE_LOCAL_SAMPLE_COPY"
+      },
+      "steps": [
+        {
+          "function_id": "sample.cleanup_local",
+          "params": {
+            "include_session_sample": true,
+            "include_download_cleanup": true
+          }
+        }
+      ],
+      "allowed_next_actions": [
+        "reverse.generate_report"
+      ],
+      "risk": "medium",
+      "network": false,
+      "config_required": false,
+      "default_safe": false
+    },
+    {
+      "id": "reverse.propose_knowledge_update",
+      "label": "Propose Knowledge Update",
+      "type": "function_group",
+      "description": "Store an AI-proposed reverse knowledge update as a pending candidate for human review without modifying official knowledge files.",
+      "requires_session": true,
+      "steps": [
+        {"function_id": "knowledge.update_candidate", "params": {}}
+      ],
+      "allowed_next_actions": [
+        "reverse.generate_report",
+        "reverse.cleanup_local_sample"
+      ],
+      "risk": "low",
+      "network": false,
+      "config_required": false,
+      "default_safe": true
+    },
+    {
+      "id": "reverse.generate_report",
+      "label": "Generate Report",
+      "type": "report_prompt",
+      "description": "Prompt the AI to summarize available evidence into the reverse module final result schema.",
+      "requires_session": true,
+      "prompt": "Use get_ai_output first, fetch raw details only through get_raw_output_map plus selected get_raw_output_by_id calls, then save the structured result with save_session_result according to modules/reverse/skill/final_result_schema.json.",
+      "allowed_next_actions": [
+        "reverse.propose_knowledge_update",
+        "reverse.cleanup_local_sample"
+      ],
+      "risk": "low",
+      "network": false,
+      "config_required": false,
+      "default_safe": true
+    }
+  ]
+}

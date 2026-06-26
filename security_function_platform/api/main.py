@@ -299,12 +299,154 @@ def list_modules() -> dict[str, Any]:
 @app.get("/api/modules/{module_id}/actions")
 def get_module_actions(module_id: str) -> dict[str, Any]:
     try:
-        return build_module_actions(module_store.get_module_detail(module_id))
+        actions = build_module_actions(module_store.get_module_detail(module_id))
+        actions["interactive_actions"] = module_store.get_module_actions_catalog(module_id)
+        actions["interactive_actions_count"] = len(actions["interactive_actions"])
+        actions["runner_tools"] = {
+            "preview": f"/api/modules/{module_id}/actions/preview",
+            "run": f"/api/sessions/<session_id>/actions/run",
+        }
+        return actions
     except KeyError:
         raise HTTPException(
             status_code=404,
             detail={"code": "module_not_found", "message": "Module was not found"},
         ) from None
+
+
+@app.post("/api/modules/{module_id}/actions/preview")
+def preview_action(module_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    try:
+        action = _module_action_or_404(module_id, str(body.get("action_id") or ""))
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "action_not_found", "message": "Action was not found"},
+        ) from None
+
+    session_id = str(body.get("session_id") or "")
+    session: dict[str, Any] | None = None
+    if session_id:
+        session = _get_session_or_404(session_id)
+
+    registry = _current_registry()
+    steps = _action_steps(action)
+    missing_functions = [
+        step["function_id"]
+        for step in steps
+        if not _registry_has_function(registry, step["function_id"])
+    ]
+    existing_results = set((session or {}).get("raw_outputs", {}).keys())
+    required_results = _string_list(action.get("requires_results"))
+    missing_results = sorted(result for result in required_results if result not in existing_results)
+    required_approvals = _string_list(action.get("requires_approvals"))
+
+    return {
+        "module_id": module_id,
+        "action": action,
+        "steps_count": len(steps),
+        "function_ids": [step["function_id"] for step in steps],
+        "ready": not missing_functions and not missing_results,
+        "missing_functions": missing_functions,
+        "missing_results": missing_results,
+        "requires_config": _string_list(action.get("requires_config")),
+        "requires_approvals": required_approvals,
+        "approval_params": action.get("approval_params", {})
+        if isinstance(action.get("approval_params"), dict)
+        else {},
+        "safety": {
+            "risk": str(action.get("risk") or "unknown"),
+            "network": bool(action.get("network", False)),
+            "config_required": bool(action.get("config_required", False)),
+            "default_safe": bool(action.get("default_safe", False)),
+            "long_running": bool(action.get("long_running", False)),
+            "preferred_execution_mode": str(action.get("preferred_execution_mode") or ""),
+        },
+        "allowed_next_actions": _string_list(action.get("allowed_next_actions")),
+        "prompt": str(action.get("prompt") or ""),
+    }
+
+
+@app.post("/api/sessions/{session_id}/actions/run")
+def run_action(session_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    module_id = str(body.get("module_id") or "")
+    action_id = str(body.get("action_id") or "")
+    params = body.get("params") if isinstance(body.get("params"), dict) else {}
+    approvals = body.get("approvals") if isinstance(body.get("approvals"), dict) else {}
+    try:
+        action = _module_action_or_404(module_id, action_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "action_not_found", "message": "Action was not found"},
+        ) from None
+    _require_action_approvals(action, approvals, params)
+
+    registry = _current_registry()
+    session = _get_session_or_404(session_id)
+    context = _session_context(session, dict(session.get("raw_outputs") or {}))
+    function_names = {item["id"]: item["name"] for item in registry.list_functions()}
+    step_overrides = params.get("step_params") if isinstance(params.get("step_params"), dict) else {}
+
+    raw_items: list[dict[str, Any]] = []
+    ai_items: list[dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
+    next_index = len(store.get_raw_output(session_id).get("items", [])) + 1
+
+    for offset, step in enumerate(_action_steps(action)):
+        function_id = step["function_id"]
+        try:
+            registry.get(function_id)
+        except KeyError:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "unknown_function",
+                    "function_id": function_id,
+                    "message": f"Unknown function: {function_id}",
+                },
+            ) from None
+        step_params = dict(step.get("params") or {})
+        override = step_overrides.get(function_id)
+        if isinstance(override, dict):
+            step_params.update(override)
+        result = registry.run(function_id, context, step_params)
+        result_dict = result.to_dict()
+        context.setdefault("results", {})[result.result_key] = result_dict
+        raw_output = store.append_raw_output_step(
+            session_id,
+            next_index + offset,
+            result_dict,
+            function_names.get(result.function_id, result.function_id),
+        )
+        raw_item = raw_output["items"][-1]
+        ai_item = sort_raw_output_item(raw_item)
+        store.append_ai_output_item(session_id, ai_item)
+        raw_items.append(
+            {
+                "raw_output_id": raw_item.get("raw_output_id", ""),
+                "function_id": raw_item.get("function_id", ""),
+                "result_key": raw_item.get("result_key", ""),
+                "status": raw_item.get("status", ""),
+            }
+        )
+        ai_items.append(ai_item)
+        results.append(result_dict)
+        if step.get("stop_on_error") and result_dict.get("status") == "error":
+            break
+
+    completed = store.save_run_outputs(session_id, context)
+    return {
+        "session_id": session_id,
+        "module_id": module_id,
+        "action_id": action_id,
+        "status": "completed",
+        "summary": completed["summary"],
+        "raw_output_items": raw_items,
+        "ai_output_items": ai_items,
+        "results": results,
+        "allowed_next_actions": _string_list(action.get("allowed_next_actions")),
+    }
 
 
 @app.get("/api/modules/{module_id}/capabilities")
@@ -898,6 +1040,71 @@ def _run_session_workflow(
     store.save_ai_output(session_id, ai_output)
     completed["ai_output"] = ai_output
     return completed
+
+
+def _module_action_or_404(module_id: str, action_id: str) -> dict[str, Any]:
+    if not module_id or not action_id:
+        raise KeyError(action_id)
+    for action in module_store.get_module_actions_catalog(module_id):
+        if str(action.get("id") or "") == action_id:
+            return action
+    raise KeyError(action_id)
+
+
+def _action_steps(action: dict[str, Any]) -> list[dict[str, Any]]:
+    steps = action.get("steps")
+    if not isinstance(steps, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        function_id = str(step.get("function_id") or "")
+        if not function_id:
+            continue
+        normalized.append(
+            {
+                "function_id": function_id,
+                "params": step.get("params") if isinstance(step.get("params"), dict) else {},
+                "stop_on_error": bool(step.get("stop_on_error", False)),
+            }
+        )
+    return normalized
+
+
+def _registry_has_function(registry: FunctionRegistry, function_id: str) -> bool:
+    try:
+        registry.get(function_id)
+    except KeyError:
+        return False
+    return True
+
+
+def _require_action_approvals(
+    action: dict[str, Any],
+    approvals: dict[str, Any],
+    params: dict[str, Any],
+) -> None:
+    approval_params = action.get("approval_params")
+    if not isinstance(approval_params, dict):
+        approval_params = {}
+    missing: list[dict[str, str]] = []
+    for approval in _string_list(action.get("requires_approvals")):
+        expected = str(approval_params.get(approval) or "")
+        value = approvals.get(approval, params.get(approval))
+        if expected and value != expected:
+            missing.append({"approval": approval, "expected": expected})
+        elif not expected and not value:
+            missing.append({"approval": approval, "expected": "truthy value"})
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "missing_action_approval",
+                "message": "Action requires explicit approval parameters.",
+                "missing": missing,
+            },
+        )
 
 
 def _session_context(session: dict[str, Any], results: dict[str, Any]) -> dict[str, Any]:

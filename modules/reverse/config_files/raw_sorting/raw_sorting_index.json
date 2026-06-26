@@ -1,0 +1,180 @@
+{
+  "sorters": [
+    {
+      "result_key": "malwarebazaar_download",
+      "sorter_file": "static_triage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "malwarebazaar_lookup",
+      "sorter_file": "threat_intel_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "virustotal_lookup",
+      "sorter_file": "threat_intel_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "virustotal_behaviour_summary",
+      "sorter_file": "threat_intel_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "hash",
+      "sorter_file": "static_triage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "file_type",
+      "sorter_file": "static_triage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "multi_format_parser",
+      "sorter_file": "static_triage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "byte_stats",
+      "sorter_file": "static_triage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "pe_deep_parse",
+      "sorter_file": "static_triage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "strings",
+      "sorter_file": "strings_ioc_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "enhanced_strings",
+      "sorter_file": "strings_ioc_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "ioc_extractor",
+      "sorter_file": "strings_ioc_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "packer_detection",
+      "sorter_file": "static_triage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "local_sample_cleanup",
+      "sorter_file": "static_triage_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "static_behavior_map",
+      "sorter_file": "behavior_attack_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "attack_mapping",
+      "sorter_file": "behavior_attack_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "ida_function_analysis",
+      "sorter_file": "function_level_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "ida_function_features",
+      "sorter_file": "function_level_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "static_dynamic_function_validation",
+      "sorter_file": "function_level_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "focused_function_level_plan",
+      "sorter_file": "function_level_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "focused_function_level_analysis",
+      "sorter_file": "function_level_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "dynamic_vm_preflight",
+      "sorter_file": "dynamic_vm_operation_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "dynamic_telemetry",
+      "sorter_file": "dynamic_telemetry_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "behavior.map_dynamic",
+      "result_key": "dynamic_behavior_map",
+      "sorter_file": "dynamic_behavior_map_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "validation.compare_static_dynamic",
+      "result_key": "static_dynamic_validation",
+      "sorter_file": "static_dynamic_validation_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "dynamic_vm_status",
+      "sorter_file": "dynamic_vm_operation_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "dynamic_vm_restore",
+      "sorter_file": "dynamic_vm_operation_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "dynamic_vm_tools_ready",
+      "sorter_file": "dynamic_vm_operation_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "dynamic_vm_upload",
+      "sorter_file": "dynamic_vm_operation_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "dynamic_vm_run",
+      "sorter_file": "dynamic_vm_operation_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "result_key": "dynamic_vm_snapshot",
+      "sorter_file": "dynamic_vm_operation_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "dynamic.vm_validate_behavior",
+      "result_key": "focused_dynamic_validation",
+      "sorter_file": "focused_dynamic_validation_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "validation.plan_focused_dynamic",
+      "result_key": "focused_dynamic_validation_plan",
+      "sorter_file": "focused_dynamic_plan_sorter.py",
+      "callable": "sort_output"
+    },
+    {
+      "function_id": "knowledge.update_candidate",
+      "result_key": "knowledge_update_candidate",
+      "sorter_file": "knowledge_update_candidate_sorter.py",
+      "callable": "sort_output"
+    }
+  ],
+  "fallback": "raw"
+}

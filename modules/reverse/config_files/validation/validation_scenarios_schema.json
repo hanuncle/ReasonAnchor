@@ -1,0 +1,47 @@
+{
+  "schema_version": "1",
+  "name": "validation_scenarios",
+  "description": "Minimal scenario format for planning single-point behavior validation. These scenarios define what telemetry would be expected; they do not run samples.",
+  "top_level_fields": {
+    "schema_version": "Required string. Current value is 1.",
+    "scenarios": "List of validation scenario definitions."
+  },
+  "scenario_fields": {
+    "scenario_id": "Required stable scenario id.",
+    "name": "Human-readable scenario name.",
+    "technique_id": "Optional ATT&CK technique id.",
+    "behavior_category": "Required platform behavior category.",
+    "purpose": "Short explanation of what the scenario validates.",
+    "sample_type": "Suggested safe sample or fixture type.",
+    "required_telemetry": "Telemetry event groups needed for this scenario.",
+    "expected_dynamic_events": "Expected event type strings when the behavior is observed.",
+    "success_criteria": "Checks used to decide whether telemetry supports the behavior.",
+    "safety_notes": "Safety constraints and human review notes."
+  },
+  "example": {
+    "schema_version": "1",
+    "scenarios": [
+      {
+        "scenario_id": "controlled_command_line_launch",
+        "name": "Controlled command-line launch",
+        "technique_id": "T1059",
+        "behavior_category": "command_execution",
+        "purpose": "Validate that command execution telemetry can be collected and mapped.",
+        "sample_type": "benign fixture or simulated telemetry",
+        "required_telemetry": [
+          "process_events"
+        ],
+        "expected_dynamic_events": [
+          "process_create"
+        ],
+        "success_criteria": [
+          "A process_create event records a command interpreter or script host.",
+          "The event includes process_name or command_line evidence."
+        ],
+        "safety_notes": [
+          "Use simulated telemetry until an isolated VM collection path is approved."
+        ]
+      }
+    ]
+  }
+}

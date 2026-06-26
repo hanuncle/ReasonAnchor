@@ -1,0 +1,50 @@
+{
+  "template_version": "1",
+  "module_id": "vuln_scan",
+  "name": "Vulnerability Scan Module",
+  "version": "0.1.0",
+  "description": "Authorized vulnerability scanning module shell with knowledge and configuration metadata.",
+  "requirements": {
+    "network": true,
+    "active_scan": true,
+    "requires_authorization": true,
+    "sample_execution": false,
+    "external_tools": ["nuclei", "nmap"]
+  },
+  "workflows": [
+    "workflows/vuln_authorized_placeholder.json"
+  ],
+  "knowledge": [
+    {
+      "type": "vulnerability_knowledge",
+      "path": "knowledge/vulnerability/cwe.json"
+    }
+  ],
+  "ui": {
+    "pages": [
+      {
+        "page_id": "vulnerability_knowledge",
+        "title": "Vulnerability Knowledge",
+        "description": "Reusable vulnerability knowledge for authorized scan planning.",
+        "type": "knowledge_table",
+        "knowledge_type": "vulnerability_knowledge",
+        "columns": [
+          "cwe_id",
+          "name",
+          "category",
+          "analysis_methods",
+          "detection_methods",
+          "risk_notes"
+        ]
+      }
+    ]
+  },
+  "skill": {
+    "skill_file": "skill/SKILL.md",
+    "playbook_file": "skill/playbook.json",
+    "final_result_schema_file": "skill/final_result_schema.json"
+  },
+  "config_fields": [
+    "config_fields/function_config_fields.json"
+  ]
+}

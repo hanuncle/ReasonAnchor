@@ -1,0 +1,17 @@
+{
+  "module_id": "vuln_scan",
+  "final_result_schema_file": "modules/vuln_scan/skill/final_result_schema.json",
+  "requires_authorization": true,
+  "active_scan": true,
+  "default_safe": false,
+  "decision_rules": [
+    {
+      "condition": "scan target is not explicitly authorized",
+      "action": "stop_and_ask_human_for_scope_confirmation"
+    },
+    {
+      "condition": "reverse analysis produced IOC candidates",
+      "action": "extract_scan_targets_then_confirm_scope_before_scanning"
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+/*
+  Basic static indicator rules for SecurityFunctionPlatform.
+
+  These rules provide candidate static signals only.
+  A match is not a confirmed malicious behavior or malware verdict.
+*/
+
+rule Suspicious_Process_Injection_APIs
+{
+    meta:
+        description = "Candidate indicators for process injection related Windows APIs"
+        severity = "medium"
+        source = "SecurityFunctionPlatform default rules"
+        verdict = "candidate_only"
+
+    strings:
+        $open_process = "OpenProcess" ascii wide
+        $write_process_memory = "WriteProcessMemory" ascii wide
+        $virtual_alloc_ex = "VirtualAllocEx" ascii wide
+        $create_remote_thread = "CreateRemoteThread" ascii wide
+
+    condition:
+        2 of them
+}
+
+rule Suspicious_Process_Execution_APIs
+{
+    meta:
+        description = "Candidate indicators for process execution related APIs"
+        severity = "medium"
+        source = "SecurityFunctionPlatform default rules"
+        verdict = "candidate_only"
+
+    strings:
+        $create_process = "CreateProcessW" ascii wide
+        $win_exec = "WinExec" ascii wide
+        $shell_execute = "ShellExecuteW" ascii wide
+        $cmd = "cmd.exe" ascii wide
+        $powershell = "powershell" ascii wide
+
+    condition:
+        2 of them
+}
+
+rule Suspicious_Network_APIs
+{
+    meta:
+        description = "Candidate indicators for network communication APIs"
+        severity = "medium"
+        source = "SecurityFunctionPlatform default rules"
+        verdict = "candidate_only"
+
+    strings:
+        $winhttp_open = "WinHttpOpen" ascii wide
+        $winhttp_send = "WinHttpSendRequest" ascii wide
+        $internet_open = "InternetOpenW" ascii wide
+        $internet_open_url = "InternetOpenUrlW" ascii wide
+        $http_send = "HttpSendRequestW" ascii wide
+        $url_download = "URLDownloadToFileW" ascii wide
+
+    condition:
+        2 of them
+}
+
+rule Suspicious_Registry_Modification_APIs
+{
+    meta:
+        description = "Candidate indicators for registry modification APIs"
+        severity = "medium"
+        source = "SecurityFunctionPlatform default rules"
+        verdict = "candidate_only"
+
+    strings:
+        $reg_create = "RegCreateKeyW" ascii wide
+        $reg_set = "RegSetValueW" ascii wide
+        $reg_set_ex = "RegSetValueExW" ascii wide
+        $reg_delete = "RegDeleteKeyW" ascii wide
+        $run_key = "Software\\Microsoft\\Windows\\CurrentVersion\\Run" ascii wide
+
+    condition:
+        2 of them
+}
+
+rule Suspicious_Anti_Debug_APIs
+{
+    meta:
+        description = "Candidate indicators for anti-debugging APIs"
+        severity = "low"
+        source = "SecurityFunctionPlatform default rules"
+        verdict = "candidate_only"
+
+    strings:
+        $is_debugger_present = "IsDebuggerPresent" ascii wide
+        $check_remote_debugger_present = "CheckRemoteDebuggerPresent" ascii wide
+        $query_performance_counter = "QueryPerformanceCounter" ascii wide
+
+    condition:
+        any of them
+}
+
+rule Suspicious_Crypto_APIs
+{
+    meta:
+        description = "Candidate indicators for Windows CryptoAPI usage"
+        severity = "low"
+        source = "SecurityFunctionPlatform default rules"
+        verdict = "candidate_only"
+
+    strings:
+        $crypt_acquire = "CryptAcquireContextW" ascii wide
+        $crypt_encrypt = "CryptEncrypt" ascii wide
+        $crypt_decrypt = "CryptDecrypt" ascii wide
+
+    condition:
+        2 of them
+}
+
+rule Windows_PE_With_Multiple_Suspicious_API_Groups
+{
+    meta:
+        description = "PE file containing multiple suspicious API groups"
+        severity = "medium"
+        source = "SecurityFunctionPlatform default rules"
+        verdict = "candidate_only"
+
+    strings:
+        $mz = { 4D 5A }
+
+        $inject1 = "WriteProcessMemory" ascii wide
+        $inject2 = "CreateRemoteThread" ascii wide
+        $inject3 = "VirtualAllocEx" ascii wide
+
+        $net1 = "WinHttpSendRequest" ascii wide
+        $net2 = "InternetOpenUrlW" ascii wide
+        $net3 = "URLDownloadToFileW" ascii wide
+
+        $reg1 = "RegSetValueExW" ascii wide
+        $reg2 = "RegCreateKeyW" ascii wide
+        $reg3 = "Software\\Microsoft\\Windows\\CurrentVersion\\Run" ascii wide
+
+    condition:
+        $mz at 0 and
+        (
+            2 of ($inject*) or
+            2 of ($net*) or
+            2 of ($reg*)
+        )
+}

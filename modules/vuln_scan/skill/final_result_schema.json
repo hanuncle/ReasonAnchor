@@ -1,0 +1,69 @@
+{
+  "schema_id": "vuln_scan.final_result.v1",
+  "module_id": "vuln_scan",
+  "description": "Final AI summary output structure for authorized vulnerability scanning sessions.",
+  "write_target": "data/sessions/<session_id>/result/result.json",
+  "save_with": "save_session_result",
+  "required_top_level_fields": [
+    "session_id",
+    "module_id",
+    "schema_id",
+    "target_scope",
+    "summary",
+    "findings"
+  ],
+  "output": {
+    "session_id": "string",
+    "module_id": "vuln_scan",
+    "schema_id": "vuln_scan.final_result.v1",
+    "target_scope": {
+      "authorized": "boolean",
+      "scope_summary": "string",
+      "limitations": [
+        "string"
+      ]
+    },
+    "summary": {
+      "overall": "string",
+      "risk_level": "unknown|low|medium|high",
+      "limitations": [
+        "string"
+      ]
+    },
+    "findings": [
+      {
+        "title": "string",
+        "severity": "info|low|medium|high|critical|unknown",
+        "affected_asset": "string",
+        "evidence": {
+          "summary": "string",
+          "sources": [
+            {
+              "source_type": "ai_output|raw_output|manual",
+              "raw_output_id": "string",
+              "function_id": "string",
+              "result_key": "string",
+              "description": "string"
+            }
+          ]
+        },
+        "verification": "verified|unverified",
+        "recommended_fix": "string"
+      }
+    ],
+    "recommended_next_steps": [
+      {
+        "action": "string",
+        "reason": "string",
+        "requires_human_confirmation": "boolean"
+      }
+    ]
+  },
+  "rules": [
+    "Save the final output with save_session_result so it is written to the session result file.",
+    "Only summarize explicitly authorized scope.",
+    "Use ai_output first and include raw_output_id sources when possible.",
+    "Do not include secrets, credentials, or tokens.",
+    "Do not present unverified scan output as confirmed exploitation."
+  ]
+}

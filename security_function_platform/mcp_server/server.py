@@ -152,6 +152,50 @@ def get_module_actions(module_id: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def preview_action(
+    module_id: str,
+    action_id: str,
+    session_id: str = "",
+) -> dict[str, Any]:
+    return _request_json(
+        "POST",
+        f"/api/modules/{_quote(module_id)}/actions/preview",
+        {"action_id": action_id, "session_id": session_id},
+    )
+
+
+@mcp.tool()
+def run_action(
+    session_id: str,
+    module_id: str,
+    action_id: str,
+    params: dict[str, Any] | None = None,
+    approvals: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    response = _request_json(
+        "POST",
+        f"/api/sessions/{_quote(session_id)}/actions/run",
+        {
+            "module_id": module_id,
+            "action_id": action_id,
+            "params": params or {},
+            "approvals": approvals or {},
+        },
+    )
+    return {
+        "session_id": response.get("session_id", session_id),
+        "module_id": response.get("module_id", module_id),
+        "action_id": response.get("action_id", action_id),
+        "status": response.get("status", ""),
+        "summary": response.get("summary", {}),
+        "raw_output_items": response.get("raw_output_items", []),
+        "ai_output_items": response.get("ai_output_items", []),
+        "allowed_next_actions": response.get("allowed_next_actions", []),
+        "response": response if response.get("status") == "error" else {},
+    }
+
+
+@mcp.tool()
 def get_module_capabilities(module_id: str) -> dict[str, Any]:
     return _request_json("GET", f"/api/modules/{_quote(module_id)}/capabilities")
 
@@ -464,6 +508,8 @@ def get_platform_skill() -> dict[str, Any]:
             "module_detail_tool": "get_module_detail",
             "platform_actions_tool": "get_platform_actions",
             "module_actions_tool": "get_module_actions",
+            "action_preview_tool": "preview_action",
+            "action_run_tool": "run_action",
             "module_capabilities_tool": "get_module_capabilities",
             "module_capabilities_refresh_tool": "refresh_module_capabilities",
             "module_template_tool": "get_module_template",

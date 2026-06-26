@@ -1,0 +1,115 @@
+{
+  "schema_id": "reverse.final_result.v1",
+  "module_id": "reverse",
+  "description": "Final AI summary output structure for reverse analysis sessions.",
+  "write_target": "data/sessions/<session_id>/result/result.json",
+  "save_with": "save_session_result",
+  "required_top_level_fields": [
+    "session_id",
+    "module_id",
+    "schema_id",
+    "file",
+    "summary",
+    "behaviors"
+  ],
+  "output": {
+    "session_id": "string",
+    "module_id": "reverse",
+    "schema_id": "reverse.final_result.v1",
+    "file": {
+      "filename": "string",
+      "size": "number",
+      "sha256": "string",
+      "file_type": "string"
+    },
+    "summary": {
+      "overall": "string",
+      "risk_level": "unknown|low|medium|high",
+      "analysis_scope": "static|dynamic|static_and_dynamic|hash_only|unknown",
+      "limitations": [
+        "string"
+      ]
+    },
+    "behaviors": [
+      {
+        "behavior": "string",
+        "concrete_behavior": "string; describe the exact observed or inferred action and object, such as connects to 203.0.113.10:443 over TCP or writes HKCU\\Software\\...\\Run",
+        "category": "string",
+        "confidence": "low|medium|high",
+        "observed_objects": [
+          {
+            "type": "domain|ip|url|port|protocol|file_path|registry_key|registry_value|process|service|scheduled_task|mutex|command_line|api|function|address|other",
+            "value": "string",
+            "role": "source|destination|target|created|modified|deleted|executed|loaded|queried|indicator|other",
+            "source_raw_output_id": "string",
+            "note": "string"
+          }
+        ],
+        "attack_techniques": [
+          {
+            "technique_id": "string",
+            "technique_name": "string",
+            "tactic": "string",
+            "mapping_status": "candidate|verified|rejected"
+          }
+        ],
+        "iocs": [
+          {
+            "type": "hash|domain|ip|url|path|registry|mutex|string|other",
+            "value": "string",
+            "source_raw_output_id": "string"
+          }
+        ],
+        "evidence": {
+          "summary": "string",
+          "sources": [
+            {
+              "source_type": "ai_output|raw_output|static_analysis|dynamic_validation|threat_intel|manual",
+              "raw_output_id": "string",
+              "function_id": "string",
+              "result_key": "string",
+              "description": "string"
+            }
+          ]
+        },
+        "verification": "verified|unverified",
+        "function_level_source": {
+          "tool": "string",
+          "function_name": "string",
+          "address": "string",
+          "source_raw_output_id": "string",
+          "note": "string"
+        }
+      }
+    ],
+    "dynamic_validation": {
+      "status": "not_run|planned|approved_run|completed|blocked",
+      "summary": "string",
+      "sources": [
+        {
+          "raw_output_id": "string",
+          "function_id": "string",
+          "description": "string"
+        }
+      ]
+    },
+    "recommended_next_steps": [
+      {
+        "action": "string",
+        "reason": "string",
+        "requires_human_confirmation": "boolean"
+      }
+    ]
+  },
+  "rules": [
+    "Save the final output with save_session_result so it is written to the session result file.",
+    "Base conclusions on ai_output first and include raw_output_id sources whenever possible.",
+    "For each behavior with concrete evidence, populate concrete_behavior and observed_objects with exact destinations, paths, keys, commands, process names, function names, addresses, or APIs when available.",
+    "Do not write only generic categories such as network connection, persistence, or file activity when the analysis identified the concrete object.",
+    "When concrete behavior is not known, explicitly state the unknown object and the evidence needed to confirm it.",
+    "Use candidate or unverified wording unless evidence is explicitly verified.",
+    "Do not mark threat-intelligence or heuristic tool output as confirmed local behavior.",
+    "Do not include secrets, local credentials, or config values.",
+    "If no function-level analysis was performed, keep function_level_source.note clear about that limitation."
+  ]
+}

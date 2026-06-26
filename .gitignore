@@ -15,13 +15,21 @@ artifacts/
 *.sqlite
 *.sqlite3
 
-# Local modules are managed separately from the platform repository by default.
-# The built-in recon scan module is published with the platform.
-modules/*
-!modules/recon_scan/
-!modules/recon_scan/**
-modules/recon_scan/**/__pycache__/
-modules/recon_scan/**/*.py[cod]
+# Published modules are part of the platform repository.
+modules/**/__pycache__/
+modules/**/*.py[cod]
+modules/**/.pytest_cache/
+modules/**/.mypy_cache/
+modules/**/.ruff_cache/
+modules/**/data/
+modules/**/uploads/
+modules/**/reports/
+modules/**/exports/
+modules/**/artifacts/
+modules/**/*.log
+modules/**/*.db
+modules/**/*.sqlite
+modules/**/*.sqlite3
 
 # Local-only agent and secret configuration
 .codex/

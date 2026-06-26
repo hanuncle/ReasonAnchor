@@ -1,0 +1,312 @@
+{
+  "module_id": "reverse",
+  "final_result_schema_file": "modules/reverse/skill/final_result_schema.json",
+  "safe_default_workflow": "",
+  "available_workflows": [
+    "module:reverse:reverse_auto_download_static_dynamic_focused",
+    "module:reverse:reverse_function_level_behavior_analysis",
+    "module:reverse:reverse_multi_sample_auto_download_static_dynamic_focused"
+  ],
+  "available_actions": [
+    "reverse.basic_identify",
+    "reverse.static_feature_extract",
+    "reverse.static_behavior_mapping",
+    "reverse.vm_preflight",
+    "reverse.vm_restore",
+    "reverse.vm_upload_sample",
+    "reverse.vm_run_sample",
+    "reverse.vm_collect_telemetry",
+    "reverse.dynamic_behavior_mapping",
+    "reverse.dynamic_observe",
+    "reverse.static_dynamic_compare",
+    "reverse.focused_validation",
+    "reverse.ida_function_level_analysis",
+    "reverse.cleanup_local_sample",
+    "reverse.propose_knowledge_update",
+    "reverse.generate_report"
+  ],
+  "recommended_action_loop": [
+    "get_module_actions('reverse')",
+    "preview_action(session_id, 'reverse.basic_identify')",
+    "run_action(session_id, 'reverse.basic_identify')",
+    "analyze ai_output_delta",
+    "choose next action from allowed_next_actions",
+    "for long_running actions, call submit_action_job then poll get_action_job",
+    "repeat preview_action -> run_action until reverse.generate_report is appropriate"
+  ],
+  "safe_default_actions": [
+    "reverse.basic_identify",
+    "reverse.static_feature_extract",
+    "reverse.static_behavior_mapping",
+    "reverse.static_dynamic_compare",
+    "reverse.generate_report"
+  ],
+  "requires_config_actions": [
+    "reverse.vm_preflight",
+    "reverse.vm_restore",
+    "reverse.vm_upload_sample",
+    "reverse.vm_run_sample",
+    "reverse.vm_collect_telemetry",
+    "reverse.dynamic_observe",
+    "reverse.focused_validation",
+    "reverse.ida_function_level_analysis"
+  ],
+  "requires_approval_actions": [
+    "reverse.vm_restore",
+    "reverse.vm_run_sample",
+    "reverse.dynamic_observe",
+    "reverse.focused_validation",
+    "reverse.cleanup_local_sample"
+  ],
+  "recommended_order": [
+    "ti.malwarebazaar.download_sample",
+    "hash.compute",
+    "file.type_detect",
+    "file.multi_format_parse",
+    "file.byte_stats",
+    "pe.deep_parse",
+    "strings.extract",
+    "strings.enhanced_extract",
+    "ioc.extract",
+    "packer.detect_enhanced",
+    "tool.ida_function_analyze",
+    "tool.ida_function_features",
+    "tool.ghidra_function_analyze",
+    "tool.ghidra_function_features",
+    "tool.binaryninja_function_analyze",
+    "behavior.map_static",
+    "attack.map_static",
+    "ti.malwarebazaar.hash_lookup",
+    "ti.virustotal.hash_lookup",
+    "ti.virustotal.behaviour_summary",
+    "dynamic.vm_preflight",
+    "dynamic.vm_status",
+    "dynamic.vm_restore_snapshot",
+    "dynamic.vm_upload_sample",
+    "dynamic.vm_run_sample",
+    "dynamic.vm_collect_sysmon",
+    "behavior.map_dynamic",
+    "validation.compare_static_dynamic",
+    "validation.compare_static_dynamic_function",
+    "validation.plan_focused_dynamic",
+    "validation.plan_focused_function_level",
+    "dynamic.vm_validate_behavior",
+    "tool.focused_function_level_analysis",
+    "knowledge.update_candidate",
+    "sample.cleanup_local"
+  ],
+  "safe_default_functions": [
+    "hash.compute",
+    "file.type_detect",
+    "file.multi_format_parse",
+    "file.byte_stats",
+    "pe.deep_parse",
+    "strings.extract",
+    "strings.enhanced_extract",
+    "packer.detect_enhanced",
+    "ioc.extract",
+    "behavior.map_static",
+    "attack.map_static"
+  ],
+  "optional_functions": [
+    "yara.scan_local",
+    "tool.detect_it_easy",
+    "tool.capa_analyze",
+    "tool.floss_extract",
+    "file.lief_parse",
+    "tool.ida_function_analyze",
+    "tool.ida_function_features",
+    "tool.ghidra_function_analyze",
+    "tool.ghidra_function_features",
+    "tool.binaryninja_function_analyze",
+    "dynamic.vm_preflight",
+    "dynamic.vm_status",
+    "dynamic.vm_restore_snapshot",
+    "dynamic.vm_upload_sample",
+    "dynamic.vm_run_sample",
+    "dynamic.vm_collect_sysmon",
+    "dynamic.vm_save_snapshot",
+    "dynamic.vm_validate_behavior",
+    "sample.cleanup_local",
+    "validation.compare_static_dynamic_function",
+    "validation.plan_focused_function_level",
+    "tool.focused_function_level_analysis",
+    "knowledge.update_candidate",
+    "ti.virustotal.hash_lookup",
+    "ti.virustotal.behaviour_summary",
+    "ti.malwarebazaar.hash_lookup",
+    "ti.malwarebazaar.download_sample"
+  ],
+  "high_noise_functions": [
+    "strings.extract",
+    "strings.enhanced_extract",
+    "tool.floss_extract"
+  ],
+  "candidate_only_functions": [
+    "ioc.extract",
+    "strings.enhanced_extract",
+    "packer.detect_enhanced",
+    "tool.capa_analyze",
+    "yara.scan_local",
+    "tool.ida_function_analyze",
+    "tool.ida_function_features",
+    "tool.ghidra_function_analyze",
+    "tool.ghidra_function_features",
+    "tool.binaryninja_function_analyze",
+    "behavior.map_static",
+    "attack.map_static",
+    "behavior.map_dynamic",
+    "validation.compare_static_dynamic",
+    "validation.compare_static_dynamic_function",
+    "validation.plan_focused_dynamic",
+    "validation.plan_focused_function_level",
+    "tool.focused_function_level_analysis",
+    "dynamic.vm_validate_behavior",
+    "knowledge.update_candidate",
+    "ti.virustotal.hash_lookup",
+    "ti.virustotal.behaviour_summary",
+    "ti.malwarebazaar.hash_lookup",
+    "ti.malwarebazaar.download_sample"
+  ],
+  "optional_tool_functions": [
+    "tool.ida_function_analyze",
+    "tool.ida_function_features",
+    "tool.ghidra_function_analyze",
+    "tool.ghidra_function_features",
+    "tool.binaryninja_function_analyze"
+  ],
+  "external_functions": [
+    "ti.virustotal.hash_lookup",
+    "ti.virustotal.behaviour_summary",
+    "ti.malwarebazaar.hash_lookup",
+    "ti.malwarebazaar.download_sample"
+  ],
+  "requires_config_functions": [
+    "yara.scan_local",
+    "tool.detect_it_easy",
+    "tool.capa_analyze",
+    "tool.floss_extract",
+    "tool.ida_function_analyze",
+    "tool.ida_function_features",
+    "tool.ghidra_function_analyze",
+    "tool.ghidra_function_features",
+    "tool.binaryninja_function_analyze",
+    "dynamic.vm_preflight",
+    "dynamic.vm_status",
+    "dynamic.vm_restore_snapshot",
+    "dynamic.vm_upload_sample",
+    "dynamic.vm_run_sample",
+    "dynamic.vm_collect_sysmon",
+    "dynamic.vm_save_snapshot",
+    "dynamic.vm_validate_behavior",
+    "ti.virustotal.hash_lookup",
+    "ti.malwarebazaar.hash_lookup",
+    "ti.malwarebazaar.download_sample",
+    "ti.virustotal.behaviour_summary"
+  ],
+  "requires_prior_result": {
+    "ioc.extract": [
+      "strings"
+    ],
+    "packer.detect_enhanced": [
+      "pe_deep_parse",
+      "enhanced_strings",
+      "byte_stats"
+    ],
+    "behavior.map_static": [
+      "pe_deep_parse",
+      "strings",
+      "enhanced_strings",
+      "packer_detection"
+    ],
+    "attack.map_static": [
+      "static_behavior_map"
+    ],
+    "dynamic.vm_status": [
+      "dynamic_vm_preflight"
+    ],
+    "dynamic.vm_restore_snapshot": [
+      "dynamic_vm_preflight"
+    ],
+    "dynamic.vm_upload_sample": [
+      "dynamic_vm_preflight"
+    ],
+    "dynamic.vm_run_sample": [
+      "dynamic_vm_preflight",
+      "dynamic_vm_upload"
+    ],
+    "dynamic.vm_collect_sysmon": [
+      "dynamic_vm_preflight",
+      "dynamic_vm_run"
+    ],
+    "dynamic.vm_save_snapshot": [
+      "dynamic_vm_preflight"
+    ],
+    "dynamic.vm_validate_behavior": [
+      "dynamic_vm_preflight",
+      "focused_dynamic_validation_plan"
+    ],
+    "validation.compare_static_dynamic_function": [
+      "static_behavior_map"
+    ],
+    "validation.plan_focused_function_level": [
+      "static_dynamic_function_validation"
+    ],
+    "tool.focused_function_level_analysis": [
+      "focused_function_level_plan"
+    ],
+    "knowledge.update_candidate": [],
+    "ti.virustotal.hash_lookup": [
+      "hash"
+    ],
+    "ti.malwarebazaar.hash_lookup": [
+      "hash"
+    ],
+    "ti.malwarebazaar.download_sample": [],
+    "ti.virustotal.behaviour_summary": [
+      "hash"
+    ]
+  },
+  "self_iteration_targets": {
+    "behavior_mapping_function": "modules/reverse/functions/behavior_map_static.py",
+    "attack_mapping_function": "modules/reverse/functions/attack_map_static.py",
+    "behavior_taxonomy": "modules/reverse/knowledge/behavior_taxonomy.json",
+    "attack_knowledge": "modules/reverse/knowledge/attack/techniques.json",
+    "validation_scenarios": "modules/reverse/config_files/validation/validation_scenarios.json",
+    "validation_samples_manifest": "modules/reverse/config_files/validation_samples/samples_manifest.json",
+    "validation_samples": "modules/reverse/config_files/validation_samples/",
+    "knowledge_update_candidates": "data/knowledge_candidates/reverse/",
+    "raw_sorting_functions": "modules/reverse/config_files/raw_sorting/",
+    "module_feature_functions": "modules/reverse/functions/"
+  },
+  "self_iteration_rules": [
+    {
+      "condition": "behavior.map_static misses, over-maps, or has weak evidence",
+      "action": "update behavior_taxonomy first, then improve behavior_mapping_function or add upstream module_feature_functions when code changes are required"
+    },
+    {
+      "condition": "attack.map_static misses ATT&CK mappings",
+      "action": "update attack_knowledge before changing attack_mapping_function"
+    },
+    {
+      "condition": "a behavior needs dynamic validation but no scenario exists",
+      "action": "add validation_scenarios entry and connect it to attack_knowledge"
+    },
+    {
+      "condition": "static behavior is not observed in broad dynamic telemetry",
+      "action": "run dynamic.vm_preflight first; if ready, run validation.plan_focused_dynamic, then use dynamic.vm_validate_behavior for the selected behavior"
+    },
+    {
+      "condition": "a technique needs a benign single-point validation fixture",
+      "action": "add validation_samples file and register it in validation_samples_manifest"
+    },
+    {
+      "condition": "behavior or ATT&CK mapping output is noisy",
+      "action": "improve raw_sorting_functions before querying full raw_output repeatedly"
+    },
+    {
+      "condition": "analysis reveals a reusable lesson but official knowledge should not be changed during the run",
+      "action": "call knowledge.update_candidate to store a pending review candidate under knowledge_update_candidates"
+    }
+  ]
+}

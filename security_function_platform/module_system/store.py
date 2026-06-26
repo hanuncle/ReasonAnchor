@@ -281,6 +281,15 @@ class ModuleStore:
         manifest = self.get_module(module_id)
         return self._skill_context_for_manifest(manifest)
 
+    def get_module_actions_catalog(self, module_id: str) -> list[dict[str, Any]]:
+        manifest = self.get_module(module_id)
+        module_root = self._module_root(manifest)
+        path = self._safe_join(module_root, "actions/actions.json")
+        data = self._read_json_if_exists(path)
+        if not isinstance(data, list):
+            return []
+        return [item for item in data if isinstance(item, dict) and item.get("id")]
+
     def get_module_ui(self, module_id: str) -> dict[str, Any]:
         manifest = self.get_module(module_id)
         return {

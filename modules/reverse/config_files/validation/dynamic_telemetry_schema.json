@@ -1,0 +1,106 @@
+{
+  "schema_version": "1",
+  "name": "dynamic_telemetry",
+  "description": "Minimal normalized dynamic telemetry format for simulated or imported VM logs. This schema describes observed telemetry only; it does not execute samples.",
+  "top_level_fields": {
+    "schema_version": "Required string. Current value is 1.",
+    "telemetry_id": "Optional stable identifier for this telemetry package.",
+    "session_id": "Optional platform session id.",
+    "sample": "Optional sample identity fields such as filename and sha256.",
+    "environment": "Optional VM or lab environment metadata.",
+    "collection": "Optional telemetry collection metadata.",
+    "process_events": "Process creation, process access, remote thread, and memory operation events.",
+    "file_events": "File create, write, delete, move, and attribute events.",
+    "registry_events": "Registry create, set, delete, and query events.",
+    "network_events": "DNS, socket, HTTP, and connection events.",
+    "service_events": "Service creation, update, start, stop, and delete events.",
+    "scheduled_task_events": "Scheduled task creation, update, run, and deletion events.",
+    "module_load_events": "DLL or module load events.",
+    "limitations": "Known collection gaps or constraints."
+  },
+  "event_common_fields": {
+    "event_id": "Optional stable event id within this telemetry package.",
+    "event_type": "Required event type string.",
+    "timestamp": "Optional ISO-8601 timestamp.",
+    "process_name": "Optional process image name associated with the event.",
+    "pid": "Optional process id associated with the event.",
+    "raw": "Optional short raw excerpt from the source log."
+  },
+  "event_types": {
+    "process_events": [
+      "process_create",
+      "process_access",
+      "memory_allocate",
+      "memory_write",
+      "remote_thread_create",
+      "process_terminate"
+    ],
+    "file_events": [
+      "file_create",
+      "file_write",
+      "file_delete",
+      "file_move",
+      "file_attribute_change"
+    ],
+    "registry_events": [
+      "registry_create",
+      "registry_set",
+      "registry_delete",
+      "registry_query"
+    ],
+    "network_events": [
+      "dns_query",
+      "network_connect",
+      "http_request",
+      "tls_connect"
+    ],
+    "service_events": [
+      "service_create",
+      "service_update",
+      "service_start",
+      "service_stop",
+      "service_delete"
+    ],
+    "scheduled_task_events": [
+      "task_create",
+      "task_update",
+      "task_run",
+      "task_delete"
+    ],
+    "module_load_events": [
+      "module_load"
+    ]
+  },
+  "example": {
+    "schema_version": "1",
+    "telemetry_id": "simulated-command-execution",
+    "sample": {
+      "filename": "sample.exe",
+      "sha256": ""
+    },
+    "environment": {
+      "os": "windows_11",
+      "arch": "x64",
+      "network_mode": "isolated"
+    },
+    "collection": {
+      "profile": "simulated",
+      "tools": [
+        "manual_fixture"
+      ]
+    },
+    "process_events": [
+      {
+        "event_id": "evt-001",
+        "event_type": "process_create",
+        "process_name": "cmd.exe",
+        "command_line": "cmd.exe /c whoami",
+        "parent_process_name": "sample.exe"
+      }
+    ],
+    "limitations": [
+      "fixture only",
+      "not confirmed runtime behavior"
+    ]
+  }
+}

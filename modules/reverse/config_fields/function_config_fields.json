@@ -1,0 +1,202 @@
+{
+  "fields": [
+    {
+      "function_id": "yara.scan_local",
+      "path": "yara.rules_dir",
+      "label": "YARA rules directory",
+      "secret": false
+    },
+    {
+      "function_id": "tool.detect_it_easy",
+      "path": "detect_it_easy.path",
+      "label": "Detect It Easy path",
+      "secret": false
+    },
+    {
+      "function_id": "tool.detect_it_easy",
+      "path": "detect_it_easy.timeout_seconds",
+      "label": "Detect It Easy timeout seconds",
+      "secret": false
+    },
+    {
+      "function_id": "tool.capa_analyze",
+      "path": "capa.path",
+      "label": "capa path",
+      "secret": false
+    },
+    {
+      "function_id": "tool.capa_analyze",
+      "path": "capa.timeout_seconds",
+      "label": "capa timeout seconds",
+      "secret": false
+    },
+    {
+      "function_id": "tool.floss_extract",
+      "path": "floss.path",
+      "label": "FLOSS path",
+      "secret": false
+    },
+    {
+      "function_id": "tool.floss_extract",
+      "path": "floss.timeout_seconds",
+      "label": "FLOSS timeout seconds",
+      "secret": false
+    },
+    {
+      "function_id": "tool.ida_function_analyze",
+      "path": "ida.path",
+      "label": "IDA idat path",
+      "secret": false
+    },
+    {
+      "function_id": "tool.ida_function_analyze",
+      "path": "ida.timeout_seconds",
+      "label": "IDA timeout seconds",
+      "secret": false
+    },
+    {
+      "function_id": "tool.ghidra_function_analyze",
+      "path": "ghidra.analyze_headless_path",
+      "label": "Ghidra analyzeHeadless path",
+      "secret": false
+    },
+    {
+      "function_id": "tool.ghidra_function_analyze",
+      "path": "ghidra.timeout_seconds",
+      "label": "Ghidra timeout seconds",
+      "secret": false
+    },
+    {
+      "function_id": "tool.binaryninja_function_analyze",
+      "path": "binaryninja.path",
+      "label": "Binary Ninja path",
+      "secret": false
+    },
+    {
+      "function_id": "tool.binaryninja_function_analyze",
+      "path": "binaryninja.python_path",
+      "label": "Binary Ninja Python path",
+      "secret": false
+    },
+    {
+      "function_id": "tool.binaryninja_function_analyze",
+      "path": "binaryninja.timeout_seconds",
+      "label": "Binary Ninja timeout seconds",
+      "secret": false
+    },
+    {
+      "function_id": "ti.virustotal.hash_lookup",
+      "path": "virustotal.api_key",
+      "label": "VirusTotal API key",
+      "secret": true
+    },
+    {
+      "function_id": "ti.virustotal.hash_lookup",
+      "path": "virustotal.endpoint",
+      "label": "VirusTotal endpoint",
+      "secret": false
+    },
+    {
+      "function_id": "ti.virustotal.behaviour_summary",
+      "path": "virustotal.behaviour_endpoint",
+      "label": "VirusTotal behaviour endpoint",
+      "secret": false
+    },
+    {
+      "function_id": "ti.virustotal.hash_lookup",
+      "path": "virustotal.timeout_seconds",
+      "label": "VirusTotal timeout seconds",
+      "secret": false
+    },
+    {
+      "function_id": "ti.malwarebazaar.hash_lookup",
+      "path": "malwarebazaar.auth_key",
+      "label": "MalwareBazaar Auth-Key",
+      "secret": true
+    },
+    {
+      "function_id": "ti.malwarebazaar.hash_lookup",
+      "path": "malwarebazaar.endpoint",
+      "label": "MalwareBazaar endpoint",
+      "secret": false
+    },
+    {
+      "function_id": "ti.malwarebazaar.hash_lookup",
+      "path": "malwarebazaar.timeout_seconds",
+      "label": "MalwareBazaar timeout seconds",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_status",
+      "path": "vmware.vmrun_path",
+      "label": "VMware vmrun path",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_status",
+      "path": "vmware.vmx_path",
+      "label": "VMware VMX path",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_status",
+      "path": "vmware.vm_password",
+      "label": "VMware encryption password",
+      "secret": true
+    },
+    {
+      "function_id": "dynamic.vm_upload_sample",
+      "path": "vmware.guest_user",
+      "label": "VMware guest user",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_upload_sample",
+      "path": "vmware.guest_password",
+      "label": "VMware guest password",
+      "secret": true
+    },
+    {
+      "function_id": "dynamic.vm_restore_snapshot",
+      "path": "vmware.ready_snapshot",
+      "label": "VMware ready snapshot",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_upload_sample",
+      "path": "vmware.guest_sample_dir",
+      "label": "VMware guest sample directory",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_collect_sysmon",
+      "path": "vmware.guest_tools_dir",
+      "label": "VMware guest tools directory",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_collect_sysmon",
+      "path": "vmware.guest_telemetry_dir",
+      "label": "VMware guest telemetry directory",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_collect_sysmon",
+      "path": "vmware.telemetry_script_path",
+      "label": "VMware telemetry export script path",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_collect_sysmon",
+      "path": "vmware.host_output_dir",
+      "label": "VMware host telemetry output directory",
+      "secret": false
+    },
+    {
+      "function_id": "dynamic.vm_status",
+      "path": "vmware.timeout_seconds",
+      "label": "VMware vmrun timeout seconds",
+      "secret": false
+    }
+  ]
+}

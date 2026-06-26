@@ -1,0 +1,14 @@
+{
+  "workflow_id": "vuln_authorized_placeholder",
+  "name": "vuln_authorized_placeholder",
+  "description": "Placeholder workflow for authorized vulnerability scanning. Real scan functions must be added by this module before active use.",
+  "tags": ["vuln_scan", "authorized", "placeholder"],
+  "risk": "high",
+  "network": true,
+  "config_required": true,
+  "default_safe": false,
+  "workflow": {
+    "name": "vuln_authorized_placeholder",
+    "steps": []
+  }
+}

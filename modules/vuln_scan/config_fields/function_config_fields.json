@@ -1,0 +1,16 @@
+{
+  "fields": [
+    {
+      "function_id": "vuln_scan.module",
+      "path": "vuln_scan.scope",
+      "label": "Authorized vulnerability scan scope",
+      "secret": false
+    },
+    {
+      "function_id": "vuln_scan.module",
+      "path": "vuln_scan.nuclei_path",
+      "label": "nuclei executable path",
+      "secret": false
+    }
+  ]
+}

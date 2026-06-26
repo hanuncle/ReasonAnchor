@@ -1,0 +1,307 @@
+{
+  "schema_version": "1",
+  "scenarios": [
+    {
+      "scenario_id": "controlled_command_line_launch",
+      "name": "Controlled command-line launch",
+      "technique_id": "T1059",
+      "behavior_category": "command_execution",
+      "purpose": "Validate command execution mapping from process creation telemetry.",
+      "sample_type": "benign PowerShell fixture",
+      "collection_profile": "process",
+      "required_telemetry": ["process_events"],
+      "expected_dynamic_events": ["process_create"],
+      "validation_samples": ["command_execution_fixture"],
+      "success_criteria": [
+        "process_name or command_line contains a command interpreter or script host",
+        "parent process information is available when possible"
+      ],
+      "safety_notes": [
+        "Use only in an approved isolated VM snapshot.",
+        "Treat telemetry as observed evidence only when collected from an approved isolated VM."
+      ]
+    },
+    {
+      "scenario_id": "network_callback_fixture",
+      "name": "Loopback network callback fixture",
+      "technique_id": "T1071",
+      "behavior_category": "network_communication",
+      "purpose": "Validate network behavior mapping from DNS, socket, or HTTP telemetry.",
+      "sample_type": "loopback-only benign fixture",
+      "collection_profile": "network",
+      "required_telemetry": ["network_events"],
+      "expected_dynamic_events": ["dns_query", "network_connect", "http_request"],
+      "validation_samples": ["network_connect_fixture"],
+      "success_criteria": [
+        "destination host, IP, port, or URL is captured",
+        "process_name or pid links the network event to the fixture process when possible"
+      ],
+      "safety_notes": [
+        "Use isolated or sink-only networking for real VM validation.",
+        "Do not allow unrestricted internet callbacks."
+      ]
+    },
+    {
+      "scenario_id": "file_write_fixture",
+      "name": "File write fixture",
+      "technique_id": "T1105",
+      "behavior_category": "file_write",
+      "purpose": "Validate file operation mapping from file create telemetry.",
+      "sample_type": "benign PowerShell fixture",
+      "collection_profile": "file",
+      "required_telemetry": ["file_events"],
+      "expected_dynamic_events": ["file_create", "file_write"],
+      "validation_samples": ["file_write_fixture"],
+      "success_criteria": [
+        "file_create or file_write event path contains C:\\Telemetry\\fixtures\\file_write_marker.txt",
+        "process_name identifies powershell.exe or the script host"
+      ],
+      "safety_notes": [
+        "Writes one marker file only.",
+        "Run cleanup after validation."
+      ]
+    },
+    {
+      "scenario_id": "registry_run_key_fixture",
+      "name": "Registry Run key fixture",
+      "technique_id": "T1547.001",
+      "behavior_category": "registry_persistence",
+      "purpose": "Validate registry persistence mapping from registry set/create telemetry.",
+      "sample_type": "benign PowerShell fixture",
+      "collection_profile": "registry",
+      "required_telemetry": ["registry_events"],
+      "expected_dynamic_events": ["registry_set", "registry_create"],
+      "validation_samples": ["registry_run_key_fixture"],
+      "success_criteria": [
+        "registry key path contains CurrentVersion\\Run or CurrentVersion\\RunOnce",
+        "value data records the executable or command when available"
+      ],
+      "safety_notes": [
+        "Use an isolated VM snapshot before any real registry write validation.",
+        "Restore VM state after real validation."
+      ]
+    },
+    {
+      "scenario_id": "controlled_remote_thread_simulation",
+      "name": "Controlled process-access fixture",
+      "technique_id": "T1055",
+      "behavior_category": "process_injection",
+      "purpose": "Validate process-injection mapping from benign cross-process access telemetry.",
+      "sample_type": "benign process-access fixture or simulated telemetry",
+      "collection_profile": "process_injection",
+      "required_telemetry": ["process_events"],
+      "expected_dynamic_events": ["process_access", "memory_write", "remote_thread_create"],
+      "validation_samples": ["process_injection_fixture"],
+      "success_criteria": [
+        "A source process opens a handle to a short-lived child process",
+        "Telemetry records process_access or equivalent cross-process access evidence",
+        "No remote code payload is injected"
+      ],
+      "safety_notes": [
+        "The fixture uses benign process access only.",
+        "Treat this as telemetry-pipeline validation, not as a real injection payload."
+      ]
+    },
+    {
+      "scenario_id": "credential_access_query_fixture",
+      "name": "Credential access query fixture",
+      "technique_id": "T1003",
+      "behavior_category": "credential_access",
+      "purpose": "Validate credential-access mapping from lsass-related command or telemetry without reading credentials.",
+      "sample_type": "benign query fixture or simulated telemetry",
+      "collection_profile": "credential_access",
+      "required_telemetry": ["process_events"],
+      "expected_dynamic_events": ["process_create", "process_access"],
+      "validation_samples": ["credential_access_fixture"],
+      "success_criteria": [
+        "command_line references lsass or credential-access terminology",
+        "no credential material is read, dumped, or exported"
+      ],
+      "safety_notes": [
+        "This fixture must not dump credentials.",
+        "It validates mapping logic using benign lsass query wording."
+      ]
+    },
+    {
+      "scenario_id": "anti_analysis_environment_probe_fixture",
+      "name": "Anti-analysis environment probe fixture",
+      "technique_id": "T1497",
+      "behavior_category": "anti_analysis",
+      "purpose": "Validate anti-analysis mapping from debugger, VM, sandbox, or monitoring-tool probes.",
+      "sample_type": "benign environment probe fixture",
+      "collection_profile": "anti_analysis",
+      "required_telemetry": ["process_events", "registry_events"],
+      "expected_dynamic_events": ["process_create", "registry_query"],
+      "validation_samples": ["anti_analysis_fixture"],
+      "success_criteria": [
+        "command_line or registry query references vmware, virtualbox, procmon, wireshark, or debugger checks",
+        "fixture writes only marker evidence and does not modify security controls"
+      ],
+      "safety_notes": [
+        "Environment probing is read-only except for marker files.",
+        "Do not treat fixture telemetry as malware behavior."
+      ]
+    },
+    {
+      "scenario_id": "anti_vm_sandbox_evasion_fixture",
+      "name": "Anti-VM and sandbox evasion probe fixture",
+      "technique_id": "T1497",
+      "behavior_category": "anti_vm_sandbox_evasion",
+      "purpose": "Validate anti-VM, sandbox, debugger, idle-time, disk, adapter, and timezone probe mapping.",
+      "sample_type": "benign environment probe fixture",
+      "collection_profile": "anti_analysis",
+      "required_telemetry": ["process_events", "registry_events"],
+      "expected_dynamic_events": ["process_create", "registry_query"],
+      "validation_samples": ["anti_vm_sandbox_evasion_fixture"],
+      "success_criteria": [
+        "command_line or marker content references vmware, virtualbox, sandbox, debugger, PhysicalDrive, adapter, timezone, or idle-time checks",
+        "fixture performs read-only environment queries and writes only marker evidence"
+      ],
+      "safety_notes": [
+        "Environment probing is read-only except for marker files.",
+        "Do not disable security tools or modify host protections."
+      ]
+    },
+    {
+      "scenario_id": "system_discovery_fixture",
+      "name": "System discovery fixture",
+      "technique_id": "T1082",
+      "behavior_category": "system_discovery",
+      "purpose": "Validate system information discovery mapping from host, OS, memory, CPU, and architecture queries.",
+      "sample_type": "benign discovery fixture",
+      "collection_profile": "discovery",
+      "required_telemetry": ["process_events"],
+      "expected_dynamic_events": ["process_create"],
+      "validation_samples": ["system_discovery_fixture"],
+      "success_criteria": [
+        "command_line or marker content references GetComputerName, GetSystemInfo, GlobalMemoryStatus, systeminfo, or OS discovery fields",
+        "no system configuration is modified"
+      ],
+      "safety_notes": [
+        "Read-only local discovery only.",
+        "Writes only a marker file under C:\\Telemetry\\fixtures."
+      ]
+    },
+    {
+      "scenario_id": "privilege_discovery_fixture",
+      "name": "Privilege discovery fixture",
+      "technique_id": "T1069",
+      "behavior_category": "privilege_discovery",
+      "purpose": "Validate privilege and permission discovery mapping from token, group, and privilege-name queries.",
+      "sample_type": "benign privilege-query fixture",
+      "collection_profile": "discovery",
+      "required_telemetry": ["process_events"],
+      "expected_dynamic_events": ["process_create"],
+      "validation_samples": ["privilege_discovery_fixture"],
+      "success_criteria": [
+        "command_line or marker content references whoami /priv, LookupPrivilegeValue, SeDebugPrivilege, AdjustTokenPrivileges, or token privilege fields",
+        "fixture does not enable or escalate privileges"
+      ],
+      "safety_notes": [
+        "Privilege checks are read-only.",
+        "Do not use the fixture to change token privileges."
+      ]
+    },
+    {
+      "scenario_id": "file_directory_discovery_fixture",
+      "name": "File and directory discovery fixture",
+      "technique_id": "T1083",
+      "behavior_category": "file_directory_discovery",
+      "purpose": "Validate file and directory discovery mapping from benign enumeration telemetry.",
+      "sample_type": "benign directory-enumeration fixture",
+      "collection_profile": "file",
+      "required_telemetry": ["process_events", "file_events"],
+      "expected_dynamic_events": ["process_create", "directory_enumerated"],
+      "validation_samples": ["file_directory_discovery_fixture"],
+      "success_criteria": [
+        "command_line or telemetry references dir, Get-ChildItem, FindFirstFile, FindNextFile, or directory enumeration",
+        "enumeration stays under C:\\Telemetry\\fixtures or another approved lab path"
+      ],
+      "safety_notes": [
+        "Read-only enumeration of lab fixture paths.",
+        "Run cleanup after validation."
+      ]
+    },
+    {
+      "scenario_id": "trace_setting_modification_fixture",
+      "name": "Trace setting modification fixture",
+      "technique_id": "T1112",
+      "behavior_category": "trace_setting_modification",
+      "purpose": "Validate trace-setting registry modification mapping from controlled Microsoft Tracing key writes.",
+      "sample_type": "benign registry-write-and-cleanup fixture",
+      "collection_profile": "registry",
+      "required_telemetry": ["registry_events"],
+      "expected_dynamic_events": ["registry_set", "registry_delete"],
+      "validation_samples": ["trace_setting_modification_fixture"],
+      "success_criteria": [
+        "registry path contains Microsoft\\Tracing and EnableFileTracing, ConsoleTracingMask, or AutoFileTracing",
+        "fixture cleans up the controlled test value"
+      ],
+      "safety_notes": [
+        "Use isolated VM snapshots for registry-write validation.",
+        "Do not modify defensive telemetry service settings."
+      ]
+    },
+    {
+      "scenario_id": "static_packer_obfuscation_fixture",
+      "name": "Static packer and obfuscation fixture",
+      "technique_id": "T1027",
+      "behavior_category": "packer_or_obfuscation",
+      "purpose": "Validate static high-entropy or encoded-blob mapping for packed or obfuscated artifacts.",
+      "sample_type": "static-focused benign fixture",
+      "collection_profile": "static",
+      "required_telemetry": ["static_features"],
+      "expected_dynamic_events": ["static_high_entropy_indicator"],
+      "validation_samples": ["packer_or_obfuscation_fixture"],
+      "success_criteria": [
+        "static analysis sees encoded or high-entropy content",
+        "packer_or_obfuscation remains candidate-only unless unpacking evidence exists"
+      ],
+      "safety_notes": [
+        "This is primarily a static validation fixture.",
+        "No payload is downloaded or executed."
+      ]
+    },
+    {
+      "scenario_id": "service_creation_fixture",
+      "name": "Windows service creation fixture",
+      "technique_id": "T1543.003",
+      "behavior_category": "service_creation",
+      "purpose": "Validate service creation mapping from service telemetry.",
+      "sample_type": "benign service-create-and-cleanup fixture",
+      "collection_profile": "service",
+      "required_telemetry": ["service_events", "process_events", "registry_events"],
+      "expected_dynamic_events": ["service_create", "service_update", "service_start"],
+      "validation_samples": ["service_creation_fixture"],
+      "success_criteria": [
+        "service name is SFPValidationService",
+        "service is deleted during cleanup",
+        "service binary path points to a benign command marker"
+      ],
+      "safety_notes": [
+        "Requires an isolated VM snapshot and an account allowed to create services.",
+        "Run cleanup after validation and restore the VM snapshot."
+      ]
+    },
+    {
+      "scenario_id": "scheduled_task_fixture",
+      "name": "Scheduled task fixture",
+      "technique_id": "T1053.005",
+      "behavior_category": "scheduled_task",
+      "purpose": "Validate scheduled task evidence collection and behavior mapping.",
+      "sample_type": "benign PowerShell fixture",
+      "collection_profile": "task",
+      "required_telemetry": ["process_events", "scheduled_task_events"],
+      "expected_dynamic_events": ["task_create", "task_run", "process_create"],
+      "validation_samples": ["scheduled_task_fixture"],
+      "success_criteria": [
+        "task name is SFPValidationTask",
+        "process creation or TaskScheduler telemetry references the fixture"
+      ],
+      "safety_notes": [
+        "Current-user task only.",
+        "Run cleanup after validation."
+      ]
+    }
+  ]
+}

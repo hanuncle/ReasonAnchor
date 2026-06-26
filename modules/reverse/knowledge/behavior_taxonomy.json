@@ -1,0 +1,442 @@
+{
+  "schema_version": "1",
+  "description": "Canonical behavior categories shared by static mapping, dynamic mapping, ATT&CK mapping, validation scenarios, and cross-sample reports.",
+  "event_groups": [
+    "process_events",
+    "file_events",
+    "registry_events",
+    "network_events",
+    "service_events",
+    "scheduled_task_events",
+    "module_load_events"
+  ],
+  "categories": [
+    {
+      "id": "command_execution",
+      "name": "Command execution",
+      "description": "The sample may launch commands, interpreters, scripts, LOLBins, or child processes.",
+      "attack_techniques": ["T1059"],
+      "static": {
+        "keywords": [
+          "createprocess",
+          "shellexecute",
+          "winexec",
+          "cmd.exe",
+          "powershell",
+          "pwsh",
+          "wscript",
+          "cscript",
+          "rundll32",
+          "regsvr32",
+          "mshta",
+          "schtasks",
+          "wmic",
+          "certutil",
+          "bitsadmin"
+        ],
+        "keyword_groups": ["powershell", "command_execution"]
+      },
+      "dynamic": {
+        "event_groups": ["process_events"],
+        "event_types": ["process_create"],
+        "keywords": [
+          "cmd.exe",
+          "powershell",
+          "pwsh",
+          "wscript",
+          "cscript",
+          "rundll32",
+          "regsvr32",
+          "mshta",
+          "schtasks",
+          "wmic",
+          "certutil",
+          "bitsadmin"
+        ]
+      }
+    },
+    {
+      "id": "network_communication",
+      "name": "Network communication",
+      "description": "The sample may perform DNS, socket, HTTP, TLS, or application-layer communication.",
+      "attack_techniques": ["T1071"],
+      "static": {
+        "keywords": [
+          "internetopen",
+          "internetconnect",
+          "httpopenrequest",
+          "httpsendrequest",
+          "winhttp",
+          "ws2_32",
+          "socket",
+          "connect",
+          "send",
+          "recv",
+          "http://",
+          "https://"
+        ],
+        "keyword_groups": ["network"]
+      },
+      "dynamic": {
+        "event_groups": ["network_events"],
+        "event_types": ["dns_query", "network_connect", "http_request", "tls_connect"],
+        "keywords": []
+      }
+    },
+    {
+      "id": "file_write",
+      "name": "File write or file operation",
+      "description": "The sample may write, move, delete, stage, or modify files.",
+      "attack_techniques": ["T1105"],
+      "static": {
+        "keywords": [
+          "copyfile",
+          "deletefile",
+          "movefile",
+          "setfileattributes",
+          "\\temp\\",
+          "\\appdata\\"
+        ],
+        "keyword_groups": []
+      },
+      "dynamic": {
+        "event_groups": ["file_events"],
+        "event_types": [
+          "file_create",
+          "file_write",
+          "file_delete",
+          "file_move",
+          "file_attribute_change"
+        ],
+        "keywords": []
+      }
+    },
+    {
+      "id": "registry_persistence",
+      "name": "Registry persistence",
+      "description": "The sample may use Run, RunOnce, service, Winlogon, or related registry persistence.",
+      "attack_techniques": ["T1547.001"],
+      "static": {
+        "keywords": [
+          "regcreatekey",
+          "regopenkey",
+          "regsetvalue",
+          "regdeletevalue",
+          "currentversion\\run",
+          "runonce"
+        ],
+        "keyword_groups": ["persistence"]
+      },
+      "dynamic": {
+        "event_groups": ["registry_events"],
+        "event_types": ["registry_create", "registry_set"],
+        "keywords": [
+          "currentversion\\run",
+          "currentversion\\runonce",
+          "\\winlogon\\"
+        ]
+      }
+    },
+    {
+      "id": "process_injection",
+      "name": "Process injection",
+      "description": "The sample may access, allocate, write, or execute code in another process.",
+      "attack_techniques": ["T1055"],
+      "static": {
+        "keywords": [
+          "openprocess",
+          "virtualallocex",
+          "writeprocessmemory",
+          "createremotethread",
+          "ntcreatethreadex",
+          "queueuserapc",
+          "setwindowshookex"
+        ],
+        "keyword_groups": []
+      },
+      "dynamic": {
+        "event_groups": ["process_events"],
+        "event_types": [
+          "process_access",
+          "memory_allocate",
+          "memory_write",
+          "remote_thread_create"
+        ],
+        "keywords": [
+          "openprocess",
+          "virtualallocex",
+          "writeprocessmemory",
+          "createremotethread",
+          "ntcreatethreadex",
+          "queueuserapc"
+        ]
+      }
+    },
+    {
+      "id": "credential_access",
+      "name": "Credential access",
+      "description": "The sample may access credential material or credential-bearing processes.",
+      "attack_techniques": ["T1003"],
+      "static": {
+        "keywords": [
+          "openprocesstoken",
+          "adjusttokenprivileges",
+          "lsass",
+          "credential",
+          "password",
+          "mimikatz"
+        ],
+        "boundary_keywords": ["sam", "lsa"],
+        "keyword_groups": ["credential_access"]
+      },
+      "dynamic": {
+        "event_groups": ["process_events"],
+        "event_types": [],
+        "keywords": ["lsass", "credential", "mimikatz"]
+      }
+    },
+    {
+      "id": "anti_analysis",
+      "name": "Anti-analysis",
+      "description": "The sample may detect debuggers, sandboxes, virtualization, monitoring tools, or analysis artifacts.",
+      "attack_techniques": ["T1497"],
+      "static": {
+        "keywords": [
+          "isdebuggerpresent",
+          "checkremotedebuggerpresent",
+          "ntqueryinformationprocess",
+          "outputdebugstring",
+          "vmware",
+          "virtualbox",
+          "sandbox",
+          "wireshark",
+          "procmon"
+        ],
+        "keyword_groups": ["anti_analysis"]
+      },
+      "dynamic": {
+        "event_groups": [
+          "process_events",
+          "file_events",
+          "registry_events",
+          "network_events",
+          "service_events",
+          "scheduled_task_events",
+          "module_load_events"
+        ],
+        "event_types": [],
+        "keywords": [
+          "isdebuggerpresent",
+          "checkremotedebuggerpresent",
+          "vmware",
+          "virtualbox",
+          "vbox",
+          "sandbox",
+          "wireshark",
+          "procmon",
+          "process monitor"
+        ]
+      }
+    },
+    {
+      "id": "anti_vm_sandbox_evasion",
+      "name": "Anti-VM or sandbox evasion",
+      "description": "The sample may query VM, sandbox, debugger, adapter, disk, timing, idle-time, or timezone artifacts to alter behavior under analysis.",
+      "attack_techniques": ["T1497"],
+      "static": {
+        "keywords": [
+          "getadaptersaddresses",
+          "getcomputername",
+          "getcomputernameex",
+          "gettimezoneinformation",
+          "getlastinputinfo",
+          "isdebuggerpresent",
+          "checkremotedebuggerpresent",
+          "ntqueryinformationprocess",
+          "physicaldrive",
+          "vmware",
+          "virtualbox",
+          "vbox",
+          "sandbox"
+        ],
+        "keyword_groups": ["anti_analysis"]
+      },
+      "dynamic": {
+        "event_groups": [
+          "process_events",
+          "file_events",
+          "registry_events",
+          "network_events",
+          "module_load_events"
+        ],
+        "event_types": [],
+        "keywords": [
+          "getadaptersaddresses",
+          "getcomputername",
+          "getcomputernameex",
+          "gettimezoneinformation",
+          "getlastinputinfo",
+          "physicaldrive",
+          "vmware",
+          "virtualbox",
+          "sandbox"
+        ]
+      }
+    },
+    {
+      "id": "system_discovery",
+      "name": "System discovery",
+      "description": "The sample may collect host, OS, hardware, memory, computer name, or environment information.",
+      "attack_techniques": ["T1082"],
+      "static": {
+        "keywords": [
+          "getsysteminfo",
+          "getnativesysteminfo",
+          "getcomputername",
+          "getcomputernameex",
+          "globalmemorystatus",
+          "globalmemorystatusex"
+        ],
+        "keyword_groups": []
+      },
+      "dynamic": {
+        "event_groups": ["process_events", "file_events", "registry_events", "module_load_events"],
+        "event_types": [],
+        "keywords": [
+          "getsysteminfo",
+          "getnativesysteminfo",
+          "getcomputername",
+          "getcomputernameex",
+          "globalmemorystatus"
+        ]
+      }
+    },
+    {
+      "id": "privilege_discovery",
+      "name": "Privilege discovery",
+      "description": "The sample may query local privileges, tokens, or privilege names such as SeDebugPrivilege.",
+      "attack_techniques": ["T1069"],
+      "static": {
+        "keywords": [
+          "lookupprivilegevalue",
+          "sedebugprivilege",
+          "adjusttokenprivileges",
+          "openprocesstoken"
+        ],
+        "keyword_groups": []
+      },
+      "dynamic": {
+        "event_groups": ["process_events", "registry_events"],
+        "event_types": [],
+        "keywords": ["lookupprivilegevalue", "sedebugprivilege", "adjusttokenprivileges", "privilege_name"]
+      }
+    },
+    {
+      "id": "file_directory_discovery",
+      "name": "File and directory discovery",
+      "description": "The sample may enumerate files, directories, framework folders, or runtime paths.",
+      "attack_techniques": ["T1083"],
+      "static": {
+        "keywords": [
+          "findfirstfile",
+          "findfirstfileex",
+          "findnextfile",
+          "directory_enumerated",
+          "enumerate_files"
+        ],
+        "keyword_groups": []
+      },
+      "dynamic": {
+        "event_groups": ["file_events", "process_events"],
+        "event_types": ["directory_enumerated", "file_enumerate", "file_query"],
+        "keywords": ["findfirstfile", "findnextfile", "directory_enumerated", "enumerate_files"]
+      }
+    },
+    {
+      "id": "trace_setting_modification",
+      "name": "Tracing setting modification",
+      "description": "The sample may read or modify Windows tracing settings such as RASAPI32 or RASMANCS registry values.",
+      "attack_techniques": ["T1112"],
+      "static": {
+        "keywords": [
+          "microsoft\\tracing\\rasapi32",
+          "microsoft\\tracing\\rasmancs",
+          "enablefiletracing",
+          "consoletracingmask",
+          "enableautofiletracing",
+          "filetracingmask"
+        ],
+        "keyword_groups": []
+      },
+      "dynamic": {
+        "event_groups": ["registry_events"],
+        "event_types": ["registry_set", "registry_create", "registry_write"],
+        "keywords": [
+          "microsoft\\tracing\\rasapi32",
+          "microsoft\\tracing\\rasmancs",
+          "enablefiletracing",
+          "consoletracingmask",
+          "enableautofiletracing",
+          "filetracingmask"
+        ]
+      }
+    },
+    {
+      "id": "packer_or_obfuscation",
+      "name": "Packer or obfuscation",
+      "description": "The sample may be packed, encrypted, obfuscated, or otherwise structured to slow analysis.",
+      "attack_techniques": ["T1027"],
+      "static": {
+        "keywords": [],
+        "keyword_groups": []
+      },
+      "dynamic": {
+        "event_groups": [],
+        "event_types": [],
+        "keywords": []
+      }
+    },
+    {
+      "id": "service_creation",
+      "name": "Service creation or control",
+      "description": "The sample may create, update, or start a Windows service.",
+      "attack_techniques": ["T1543.003"],
+      "static": {
+        "keywords": [
+          "createservice",
+          "openservice",
+          "startservice",
+          "changeserviceconfig",
+          "\\services\\"
+        ],
+        "keyword_groups": []
+      },
+      "dynamic": {
+        "event_groups": ["service_events"],
+        "event_types": ["service_create", "service_update", "service_start"],
+        "keywords": []
+      }
+    },
+    {
+      "id": "scheduled_task",
+      "name": "Scheduled task",
+      "description": "The sample may create, update, or run scheduled tasks.",
+      "attack_techniques": ["T1053.005"],
+      "static": {
+        "keywords": [
+          "schtasks",
+          "scheduledtask",
+          "register-scheduledtask",
+          "taskschd",
+          "Schtasks"
+        ],
+        "keyword_groups": []
+      },
+      "dynamic": {
+        "event_groups": ["scheduled_task_events"],
+        "event_types": ["task_create", "task_update", "task_run"],
+        "keywords": []
+      }
+    }
+  ]
+}

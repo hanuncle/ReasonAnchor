@@ -1,0 +1,422 @@
+{
+  "schema_version": "1",
+  "module_id": "reverse",
+  "description": "Benign single-point validation fixtures for dynamic telemetry and static/dynamic comparison.",
+  "default_safety": {
+    "execute_by_default": false,
+    "requires_isolated_vm": true,
+    "requires_snapshot": true,
+    "external_network": false,
+    "cleanup_supported": true
+  },
+  "samples": [
+    {
+      "sample_id": "command_execution_fixture",
+      "name": "Command execution fixture",
+      "path": "command_execution_fixture.ps1",
+      "behavior_category": "command_execution",
+      "technique_id": "T1059",
+      "scenario_id": "controlled_command_line_launch",
+      "purpose": "Generate a benign process_create telemetry event for cmd.exe.",
+      "static_evidence": [
+        "cmd.exe string",
+        "Start-Process command"
+      ],
+      "expected_dynamic_events": [
+        "process_create"
+      ],
+      "expected_dynamic_fields": [
+        "process_name=cmd.exe",
+        "command_line contains sfp_command_execution_fixture"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\command_execution_marker.txt",
+      "safety_notes": [
+        "Does not download or execute payloads.",
+        "Writes only a marker file under C:\\Telemetry\\fixtures."
+      ]
+    },
+    {
+      "sample_id": "file_write_fixture",
+      "name": "File write fixture",
+      "path": "file_write_fixture.ps1",
+      "behavior_category": "file_write",
+      "technique_id": "T1105",
+      "scenario_id": "file_write_fixture",
+      "purpose": "Generate a benign file_create telemetry event under C:\\Telemetry\\fixtures.",
+      "static_evidence": [
+        "Set-Content command",
+        "C:\\Telemetry\\fixtures marker path"
+      ],
+      "expected_dynamic_events": [
+        "file_create"
+      ],
+      "expected_dynamic_fields": [
+        "path contains C:\\Telemetry\\fixtures\\file_write_marker.txt"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\file_write_marker.txt",
+      "safety_notes": [
+        "Writes one marker file only.",
+        "No persistence and no network activity."
+      ]
+    },
+    {
+      "sample_id": "registry_run_key_fixture",
+      "name": "Registry Run key fixture",
+      "path": "registry_run_key_fixture.ps1",
+      "behavior_category": "registry_persistence",
+      "technique_id": "T1547.001",
+      "scenario_id": "registry_run_key_fixture",
+      "purpose": "Generate a HKCU Run key registry_set telemetry event and support cleanup.",
+      "static_evidence": [
+        "CurrentVersion\\Run string",
+        "Set-ItemProperty command"
+      ],
+      "expected_dynamic_events": [
+        "registry_set"
+      ],
+      "expected_dynamic_fields": [
+        "key_path contains CurrentVersion\\Run",
+        "value_name=SFPValidationRunKey"
+      ],
+      "cleanup": "Remove HKCU Run value SFPValidationRunKey",
+      "safety_notes": [
+        "Uses HKCU only.",
+        "The value points to cmd.exe with a benign echo command.",
+        "Run cleanup after validation."
+      ]
+    },
+    {
+      "sample_id": "network_connect_fixture",
+      "name": "Loopback network connection fixture",
+      "path": "network_connect_fixture.ps1",
+      "behavior_category": "network_communication",
+      "technique_id": "T1071",
+      "scenario_id": "network_callback_fixture",
+      "purpose": "Generate a network_connect attempt to 127.0.0.1 only.",
+      "static_evidence": [
+        "127.0.0.1 string",
+        "TcpClient usage"
+      ],
+      "expected_dynamic_events": [
+        "network_connect"
+      ],
+      "expected_dynamic_fields": [
+        "destination_ip=127.0.0.1"
+      ],
+      "cleanup": "No persistent state",
+      "safety_notes": [
+        "Uses loopback only.",
+        "Does not connect to the internet.",
+        "Connection may fail if no listener exists; the attempt can still be useful telemetry."
+      ]
+    },
+    {
+      "sample_id": "scheduled_task_fixture",
+      "name": "Scheduled task fixture",
+      "path": "scheduled_task_fixture.ps1",
+      "behavior_category": "scheduled_task",
+      "technique_id": "T1053.005",
+      "scenario_id": "scheduled_task_fixture",
+      "purpose": "Create, run, and remove a current-user scheduled task.",
+      "static_evidence": [
+        "ScheduledTask cmdlets",
+        "SFPValidationTask string"
+      ],
+      "expected_dynamic_events": [
+        "process_create",
+        "task_create",
+        "task_run"
+      ],
+      "expected_dynamic_fields": [
+        "task_name=SFPValidationTask",
+        "command_line contains SFPValidationTask"
+      ],
+      "cleanup": "Unregister scheduled task SFPValidationTask",
+      "safety_notes": [
+        "Current-user task only.",
+        "Runs cmd.exe with a benign echo command.",
+        "Run cleanup after validation."
+      ]
+    },
+    {
+      "sample_id": "process_injection_fixture",
+      "name": "Controlled process access fixture",
+      "path": "process_injection_fixture.ps1",
+      "behavior_category": "process_injection",
+      "technique_id": "T1055",
+      "scenario_id": "controlled_remote_thread_simulation",
+      "purpose": "Generate benign process-access telemetry against a short-lived child process.",
+      "static_evidence": [
+        "OpenProcess string",
+        "PROCESS_QUERY_LIMITED_INFORMATION access mask",
+        "process_injection_marker.txt marker path"
+      ],
+      "expected_dynamic_events": [
+        "process_create",
+        "process_access"
+      ],
+      "expected_dynamic_fields": [
+        "target process is the child cmd.exe or timeout.exe",
+        "command_line contains process_injection_marker",
+        "access is query-only"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\process_injection_marker.txt",
+      "safety_notes": [
+        "Does not allocate memory in another process.",
+        "Does not write memory or create a remote thread.",
+        "Uses query-only process access for telemetry validation."
+      ]
+    },
+    {
+      "sample_id": "credential_access_fixture",
+      "name": "Credential access query fixture",
+      "path": "credential_access_fixture.ps1",
+      "behavior_category": "credential_access",
+      "technique_id": "T1003",
+      "scenario_id": "credential_access_query_fixture",
+      "purpose": "Generate benign command-line evidence that references LSASS without dumping credentials.",
+      "static_evidence": [
+        "lsass string",
+        "Get-Process lsass command",
+        "credential_access_marker.txt marker path"
+      ],
+      "expected_dynamic_events": [
+        "process_create"
+      ],
+      "expected_dynamic_fields": [
+        "command_line contains Get-Process lsass",
+        "command_line contains credential_access_marker"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\credential_access_marker.txt",
+      "safety_notes": [
+        "Does not read LSASS memory.",
+        "Does not dump credentials.",
+        "Uses process query wording only to validate mapping and detection evidence."
+      ]
+    },
+    {
+      "sample_id": "anti_analysis_fixture",
+      "name": "Anti-analysis probe fixture",
+      "path": "anti_analysis_fixture.ps1",
+      "behavior_category": "anti_analysis",
+      "technique_id": "T1497",
+      "scenario_id": "anti_analysis_environment_probe_fixture",
+      "purpose": "Generate benign telemetry and strings for debugger, sandbox, and virtualization checks.",
+      "static_evidence": [
+        "vmware string",
+        "virtualbox string",
+        "x64dbg string",
+        "procmon string"
+      ],
+      "expected_dynamic_events": [
+        "process_create",
+        "registry_query"
+      ],
+      "expected_dynamic_fields": [
+        "command_line or script content contains vmware",
+        "command_line or script content contains virtualbox",
+        "marker file contains anti-analysis probe terms"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\anti_analysis_marker.txt",
+      "safety_notes": [
+        "Reads local environment metadata only.",
+        "Does not disable tools or alter defensive controls.",
+        "Writes only a marker file under C:\\Telemetry\\fixtures."
+      ]
+    },
+    {
+      "sample_id": "anti_vm_sandbox_evasion_fixture",
+      "name": "Anti-VM and sandbox evasion probe fixture",
+      "path": "anti_vm_sandbox_evasion_fixture.ps1",
+      "behavior_category": "anti_vm_sandbox_evasion",
+      "technique_id": "T1497",
+      "scenario_id": "anti_vm_sandbox_evasion_fixture",
+      "purpose": "Generate benign evidence for VM, sandbox, debugger, adapter, disk, timezone, and idle-time checks.",
+      "static_evidence": [
+        "vmware string",
+        "virtualbox string",
+        "PhysicalDrive string",
+        "GetTimeZoneInformation string",
+        "GetLastInputInfo string"
+      ],
+      "expected_dynamic_events": [
+        "process_create",
+        "registry_query"
+      ],
+      "expected_dynamic_fields": [
+        "command_line or marker content contains vmware or virtualbox",
+        "marker content contains PhysicalDrive, adapter, timezone, or idle-time probe terms"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\anti_vm_sandbox_evasion_marker.txt",
+      "safety_notes": [
+        "Read-only environment probing only.",
+        "Does not disable tools or change defensive controls.",
+        "Writes only a marker file under C:\\Telemetry\\fixtures."
+      ]
+    },
+    {
+      "sample_id": "system_discovery_fixture",
+      "name": "System discovery fixture",
+      "path": "system_discovery_fixture.ps1",
+      "behavior_category": "system_discovery",
+      "technique_id": "T1082",
+      "scenario_id": "system_discovery_fixture",
+      "purpose": "Generate benign system information discovery evidence.",
+      "static_evidence": [
+        "GetComputerName string",
+        "GetSystemInfo string",
+        "systeminfo command",
+        "GlobalMemoryStatus string"
+      ],
+      "expected_dynamic_events": [
+        "process_create"
+      ],
+      "expected_dynamic_fields": [
+        "command_line or marker content references system discovery terms"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\system_discovery_marker.txt",
+      "safety_notes": [
+        "Read-only local discovery only.",
+        "Writes only a marker file under C:\\Telemetry\\fixtures."
+      ]
+    },
+    {
+      "sample_id": "privilege_discovery_fixture",
+      "name": "Privilege discovery fixture",
+      "path": "privilege_discovery_fixture.ps1",
+      "behavior_category": "privilege_discovery",
+      "technique_id": "T1069",
+      "scenario_id": "privilege_discovery_fixture",
+      "purpose": "Generate benign privilege and permission discovery evidence.",
+      "static_evidence": [
+        "whoami /priv command",
+        "LookupPrivilegeValue string",
+        "SeDebugPrivilege string",
+        "AdjustTokenPrivileges string"
+      ],
+      "expected_dynamic_events": [
+        "process_create"
+      ],
+      "expected_dynamic_fields": [
+        "command_line or marker content references privilege discovery terms"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\privilege_discovery_marker.txt",
+      "safety_notes": [
+        "Privilege checks are read-only.",
+        "Does not enable, request, or escalate privileges."
+      ]
+    },
+    {
+      "sample_id": "file_directory_discovery_fixture",
+      "name": "File and directory discovery fixture",
+      "path": "file_directory_discovery_fixture.ps1",
+      "behavior_category": "file_directory_discovery",
+      "technique_id": "T1083",
+      "scenario_id": "file_directory_discovery_fixture",
+      "purpose": "Generate benign file and directory enumeration evidence.",
+      "static_evidence": [
+        "Get-ChildItem command",
+        "dir command",
+        "FindFirstFile string",
+        "FindNextFile string"
+      ],
+      "expected_dynamic_events": [
+        "process_create",
+        "directory_enumerated"
+      ],
+      "expected_dynamic_fields": [
+        "command_line or marker content references C:\\Telemetry\\fixtures enumeration"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\file_directory_discovery_marker.txt",
+      "safety_notes": [
+        "Enumerates lab fixture paths only.",
+        "Does not modify files outside marker cleanup."
+      ]
+    },
+    {
+      "sample_id": "trace_setting_modification_fixture",
+      "name": "Trace setting modification fixture",
+      "path": "trace_setting_modification_fixture.ps1",
+      "behavior_category": "trace_setting_modification",
+      "technique_id": "T1112",
+      "scenario_id": "trace_setting_modification_fixture",
+      "purpose": "Generate controlled Microsoft Tracing registry modification evidence.",
+      "static_evidence": [
+        "Microsoft\\Tracing registry path",
+        "EnableFileTracing value",
+        "ConsoleTracingMask value",
+        "AutoFileTracing value"
+      ],
+      "expected_dynamic_events": [
+        "registry_set",
+        "registry_delete"
+      ],
+      "expected_dynamic_fields": [
+        "registry path contains Microsoft\\Tracing",
+        "value name contains EnableFileTracing, ConsoleTracingMask, or AutoFileTracing"
+      ],
+      "cleanup": "Remove controlled Microsoft\\Tracing test values created by the fixture",
+      "safety_notes": [
+        "Use isolated VM snapshots for registry-write validation.",
+        "Does not modify defensive telemetry service settings."
+      ]
+    },
+    {
+      "sample_id": "packer_or_obfuscation_fixture",
+      "name": "Static packer or obfuscation fixture",
+      "path": "packer_or_obfuscation_fixture.ps1",
+      "behavior_category": "packer_or_obfuscation",
+      "technique_id": "T1027",
+      "scenario_id": "static_packer_obfuscation_fixture",
+      "purpose": "Provide static-only encoded and high-entropy-looking artifacts for packer heuristic validation.",
+      "static_evidence": [
+        "base64 encoded blob",
+        "high entropy byte blob",
+        "packer_or_obfuscation_blob.bin output name"
+      ],
+      "expected_dynamic_events": [
+        "file_create",
+        "static_high_entropy_indicator"
+      ],
+      "expected_dynamic_fields": [
+        "path contains packer_or_obfuscation_blob.bin",
+        "static entropy indicator is present"
+      ],
+      "cleanup": "Remove C:\\Telemetry\\fixtures\\packer_or_obfuscation_marker.txt and packer_or_obfuscation_blob.bin",
+      "safety_notes": [
+        "Static-focused fixture only.",
+        "Does not unpack or execute embedded code.",
+        "Writes marker artifacts under C:\\Telemetry\\fixtures."
+      ]
+    },
+    {
+      "sample_id": "service_creation_fixture",
+      "name": "Service creation fixture",
+      "path": "service_creation_fixture.ps1",
+      "behavior_category": "service_creation",
+      "technique_id": "T1543.003",
+      "scenario_id": "service_creation_fixture",
+      "purpose": "Create, start, stop, and remove a benign Windows service for telemetry validation.",
+      "static_evidence": [
+        "sc.exe create command",
+        "SFPValidationService string",
+        "service_creation_marker.txt marker path"
+      ],
+      "expected_dynamic_events": [
+        "service_create",
+        "service_start",
+        "service_delete"
+      ],
+      "expected_dynamic_fields": [
+        "service_name=SFPValidationService",
+        "command_line contains sfp_service_creation_fixture"
+      ],
+      "cleanup": "Stop and delete service SFPValidationService; remove C:\\Telemetry\\fixtures\\service_creation_marker.txt",
+      "safety_notes": [
+        "Creates a temporary benign service only.",
+        "Service command writes one marker file.",
+        "Run cleanup after validation."
+      ]
+    }
+  ]
+}

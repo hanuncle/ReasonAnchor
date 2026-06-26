@@ -1,0 +1,328 @@
+{
+  "template_version": "1",
+  "module_id": "reverse",
+  "name": "Reverse Analysis Module",
+  "version": "0.1.0",
+  "description": "Local reverse/static analysis workflows, ATT&CK knowledge, and Codex guidance.",
+  "requirements": {
+    "network": true,
+    "active_scan": false,
+    "requires_authorization": false,
+    "sample_execution": true,
+    "external_tools": [
+      "capa",
+      "floss",
+      "detect_it_easy",
+      "yara-python",
+      "lief",
+      "ida",
+      "ghidra",
+      "binaryninja",
+      "virustotal",
+      "malwarebazaar",
+      "vmware"
+    ]
+  },
+  "functions": [
+    {
+      "function_id": "hash.compute",
+      "path": "functions/hash_compute.py",
+      "class_name": "HashComputeFunction"
+    },
+    {
+      "function_id": "file.type_detect",
+      "path": "functions/file_type_detect.py",
+      "class_name": "FileTypeDetectFunction"
+    },
+    {
+      "function_id": "file.multi_format_parse",
+      "path": "functions/multi_format_parse.py",
+      "class_name": "MultiFormatParseFunction"
+    },
+    {
+      "function_id": "file.byte_stats",
+      "path": "functions/byte_stats.py",
+      "class_name": "ByteStatsFunction"
+    },
+    {
+      "function_id": "pe.deep_parse",
+      "path": "functions/pe_deep_parse.py",
+      "class_name": "PeDeepParseFunction"
+    },
+    {
+      "function_id": "strings.extract",
+      "path": "functions/strings_extract.py",
+      "class_name": "StringsExtractFunction"
+    },
+    {
+      "function_id": "strings.enhanced_extract",
+      "path": "functions/strings_enhanced_extract.py",
+      "class_name": "StringsEnhancedExtractFunction"
+    },
+    {
+      "function_id": "ioc.extract",
+      "path": "functions/ioc_extract.py",
+      "class_name": "IocExtractFunction"
+    },
+    {
+      "function_id": "packer.detect_enhanced",
+      "path": "functions/packer_detect_enhanced.py",
+      "class_name": "PackerDetectEnhancedFunction"
+    },
+    {
+      "function_id": "yara.scan_local",
+      "path": "functions/yara_scan_local.py",
+      "class_name": "YaraScanLocalFunction"
+    },
+    {
+      "function_id": "tool.detect_it_easy",
+      "path": "functions/detect_it_easy.py",
+      "class_name": "DetectItEasyFunction"
+    },
+    {
+      "function_id": "tool.capa_analyze",
+      "path": "functions/capa_analyze.py",
+      "class_name": "CapaAnalyzeFunction"
+    },
+    {
+      "function_id": "tool.floss_extract",
+      "path": "functions/floss_extract.py",
+      "class_name": "FlossExtractFunction"
+    },
+    {
+      "function_id": "file.lief_parse",
+      "path": "functions/lief_parse.py",
+      "class_name": "LiefParseFunction"
+    },
+    {
+      "function_id": "tool.ida_function_analyze",
+      "path": "functions/ida_function_analyze.py",
+      "class_name": "IdaFunctionAnalyzeFunction"
+    },
+    {
+      "function_id": "tool.ida_function_features",
+      "path": "functions/ida_function_features.py",
+      "class_name": "IdaFunctionFeaturesFunction"
+    },
+    {
+      "function_id": "tool.ghidra_function_analyze",
+      "path": "functions/ghidra_function_analyze.py",
+      "class_name": "GhidraFunctionAnalyzeFunction"
+    },
+    {
+      "function_id": "tool.ghidra_function_features",
+      "path": "functions/ghidra_function_features.py",
+      "class_name": "GhidraFunctionFeaturesFunction"
+    },
+    {
+      "function_id": "tool.binaryninja_function_analyze",
+      "path": "functions/binaryninja_function_analyze.py",
+      "class_name": "BinaryNinjaFunctionAnalyzeFunction"
+    },
+    {
+      "function_id": "behavior.map_static",
+      "path": "functions/behavior_map_static.py",
+      "class_name": "BehaviorMapStaticFunction"
+    },
+    {
+      "function_id": "attack.map_static",
+      "path": "functions/attack_map_static.py",
+      "class_name": "AttackMapStaticFunction"
+    },
+    {
+      "function_id": "behavior.map_dynamic",
+      "path": "functions/behavior_map_dynamic.py",
+      "class_name": "BehaviorMapDynamicFunction"
+    },
+    {
+      "function_id": "validation.compare_static_dynamic",
+      "path": "functions/validation_compare_static_dynamic.py",
+      "class_name": "ValidationCompareStaticDynamicFunction"
+    },
+    {
+      "function_id": "validation.plan_focused_dynamic",
+      "path": "functions/validation_plan_focused_dynamic.py",
+      "class_name": "ValidationPlanFocusedDynamicFunction"
+    },
+    {
+      "function_id": "validation.compare_static_dynamic_function",
+      "path": "functions/validation_compare_static_dynamic_function.py",
+      "class_name": "ValidationCompareStaticDynamicFunctionLevelFunction"
+    },
+    {
+      "function_id": "validation.plan_focused_function_level",
+      "path": "functions/validation_plan_focused_function_level.py",
+      "class_name": "ValidationPlanFocusedFunctionLevelFunction"
+    },
+    {
+      "function_id": "tool.focused_function_level_analysis",
+      "path": "functions/focused_function_level_analysis.py",
+      "class_name": "FocusedFunctionLevelAnalysisFunction"
+    },
+    {
+      "function_id": "dynamic.vm_preflight",
+      "path": "functions/dynamic_vm_preflight.py",
+      "class_name": "DynamicVmPreflightFunction"
+    },
+    {
+      "function_id": "dynamic.vm_status",
+      "path": "functions/dynamic_vm_status.py",
+      "class_name": "DynamicVmStatusFunction"
+    },
+    {
+      "function_id": "dynamic.vm_start_tools",
+      "path": "functions/dynamic_vm_start_tools.py",
+      "class_name": "DynamicVmStartToolsFunction"
+    },
+    {
+      "function_id": "dynamic.vm_restore_snapshot",
+      "path": "functions/dynamic_vm_restore_snapshot.py",
+      "class_name": "DynamicVmRestoreSnapshotFunction"
+    },
+    {
+      "function_id": "dynamic.vm_upload_sample",
+      "path": "functions/dynamic_vm_upload_sample.py",
+      "class_name": "DynamicVmUploadSampleFunction"
+    },
+    {
+      "function_id": "dynamic.vm_run_sample",
+      "path": "functions/dynamic_vm_run_sample.py",
+      "class_name": "DynamicVmRunSampleFunction"
+    },
+    {
+      "function_id": "dynamic.vm_collect_sysmon",
+      "path": "functions/dynamic_vm_collect_sysmon.py",
+      "class_name": "DynamicVmCollectSysmonFunction"
+    },
+    {
+      "function_id": "dynamic.vm_validate_behavior",
+      "path": "functions/dynamic_vm_validate_behavior.py",
+      "class_name": "DynamicVmValidateBehaviorFunction"
+    },
+    {
+      "function_id": "dynamic.vm_save_snapshot",
+      "path": "functions/dynamic_vm_save_snapshot.py",
+      "class_name": "DynamicVmSaveSnapshotFunction"
+    },
+    {
+      "function_id": "ti.virustotal.hash_lookup",
+      "path": "functions/virustotal_hash_lookup.py",
+      "class_name": "VirusTotalHashLookupFunction"
+    },
+    {
+      "function_id": "ti.virustotal.behaviour_summary",
+      "path": "functions/virustotal_behaviour_summary.py",
+      "class_name": "VirusTotalBehaviourSummaryFunction"
+    },
+    {
+      "function_id": "ti.malwarebazaar.hash_lookup",
+      "path": "functions/malwarebazaar_hash_lookup.py",
+      "class_name": "MalwareBazaarHashLookupFunction"
+    },
+    {
+      "function_id": "ti.malwarebazaar.download_sample",
+      "path": "functions/malwarebazaar_download_sample.py",
+      "class_name": "MalwareBazaarDownloadSampleFunction"
+    },
+    {
+      "function_id": "knowledge.update_candidate",
+      "path": "functions/knowledge_update_candidate.py",
+      "class_name": "KnowledgeUpdateCandidateFunction"
+    },
+    {
+      "function_id": "sample.cleanup_local",
+      "path": "functions/local_sample_cleanup.py",
+      "class_name": "LocalSampleCleanupFunction"
+    }
+  ],
+  "workflows": [
+    "workflows/reverse_auto_download_static_dynamic_focused.json",
+    "workflows/reverse_function_level_behavior_analysis.json",
+    "workflows/reverse_multi_sample_auto_download_static_dynamic_focused.json"
+  ],
+  "actions": [
+    "actions/actions.json"
+  ],
+  "knowledge": [
+    {
+      "type": "behavior_taxonomy",
+      "path": "knowledge/behavior_taxonomy.json"
+    },
+    {
+      "type": "attack_techniques",
+      "path": "knowledge/attack/techniques.json"
+    },
+    {
+      "type": "dynamic_telemetry_schema",
+      "path": "config_files/validation/dynamic_telemetry_schema.json"
+    },
+    {
+      "type": "validation_scenarios_schema",
+      "path": "config_files/validation/validation_scenarios_schema.json"
+    },
+    {
+      "type": "validation_scenarios",
+      "path": "config_files/validation/validation_scenarios.json"
+    },
+    {
+      "type": "validation_samples",
+      "path": "config_files/validation_samples/samples_manifest.json"
+    }
+  ],
+  "ui": {
+    "pages": [
+      {
+        "page_id": "attack_knowledge",
+        "title": "ATT&CK Knowledge",
+        "description": "ATT&CK techniques mapped to reverse-module behavior categories, analysis methods, detection methods, and validation assets.",
+        "type": "knowledge_table",
+        "knowledge_type": "attack_techniques",
+        "columns": [
+          "technique_id",
+          "name",
+          "tactic",
+          "behavior_categories",
+          "analysis_methods",
+          "detection_methods",
+          "validation_samples"
+        ]
+      },
+      {
+        "page_id": "behavior_taxonomy",
+        "title": "Behavior Taxonomy",
+        "description": "Canonical behavior categories used by static mapping, dynamic mapping, ATT&CK mapping, validation, and sample-set reports.",
+        "type": "taxonomy_browser",
+        "knowledge_type": "behavior_taxonomy",
+        "columns": [
+          "id",
+          "name",
+          "description",
+          "attack_techniques"
+        ]
+      },
+      {
+        "page_id": "validation_samples",
+        "title": "Validation Samples",
+        "description": "Benign single-point validation fixtures for checking behavior mapping and VM telemetry consistency.",
+        "type": "knowledge_table",
+        "knowledge_type": "validation_samples",
+        "columns": [
+          "sample_id",
+          "name",
+          "behavior_category",
+          "technique_id",
+          "expected_dynamic_events",
+          "cleanup"
+        ]
+      }
+    ]
+  },
+  "skill": {
+    "skill_file": "skill/SKILL.md",
+    "playbook_file": "skill/playbook.json",
+    "final_result_schema_file": "skill/final_result_schema.json"
+  },
+  "config_fields": [
+    "config_fields/function_config_fields.json"
+  ]
+}
