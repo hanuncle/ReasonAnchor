@@ -9,26 +9,31 @@ Use the platform for local security analysis workflows. Do not execute uploaded 
 ## Required Flow
 
 1. Call `get_platform_skill`.
-2. Call `get_platform_actions` when the platform-level menu or startup options are needed.
-3. Call `list_modules`.
-4. Ask the user to choose a module unless the user already named one.
-5. Call `get_module_actions(module_id)` and `get_module_capabilities(module_id)` when the selected module menu or cached capability summary is needed.
-6. Call `get_module_skill(module_id)` only for the selected module.
-7. Use `get_module_detail(module_id)` when manifest details, functions, workflows, config fields, or validation status are needed.
-8. Before analysis work starts, ask whether module code self-iteration is allowed for this task.
-9. Upload a sample with `upload_sample` or `upload_samples`, create a target session with `create_target_session`, or reuse an existing session from `list_sessions` / `get_session`.
-10. Call `list_functions` and `list_custom_workflows`.
-11. Choose an existing workflow or create one with `save_custom_workflow`, then apply it with `select_custom_workflow`.
-12. Run it with `run_workflow`.
+2. Call `list_mcp_tools` when the available MCP surface, groups, inputs, returns, or side-effect hints are needed.
+3. Call `get_platform_actions` when the platform-level menu or startup options are needed.
+4. Call `list_modules`.
+5. Ask the user to choose a module unless the user already named one.
+6. Call `get_module_actions(module_id)` and `get_module_capabilities(module_id)` when the selected module menu or cached capability summary is needed.
+7. Call `get_module_skill(module_id)` only for the selected module.
+8. Use `get_module_detail(module_id)` when manifest details, functions, workflows, config fields, or validation status are needed.
+9. Use `list_runner_flows(module_id)` and `preview_runner_flow(...)` when a module flow needs to be compiled into a Go runner plan without executing it.
+10. Before analysis work starts, ask whether module code self-iteration is allowed for this task.
+11. Upload a sample with `upload_sample` or `upload_samples`, create a target session with `create_target_session`, or reuse an existing session from `list_sessions` / `get_session`.
+12. For a module action, call `preview_action(module_id, action_id, session_id)` first and inspect `execution_plan`, `validation_errors`, missing results, and approval requirements.
+13. If the preview is ready and the action is approved for the task, run it with `run_action`; use its compact outputs and returned `execution_plan` for follow-up reasoning.
+    - For long actions, poll `get_session_execution_status(session_id)` to report the current step, such as VM restore, sample upload, sample execution, Sysmon collection, EVTX collection, or PCAP processing.
+14. For a workflow template, call `list_functions` and `list_custom_workflows`.
+15. Choose an existing workflow or create one with `save_custom_workflow`, then apply it with `select_custom_workflow`.
+16. Run it with `run_workflow`.
     - For a short user-approved multi-session batch, use `run_batch_workflow` and review the saved sample-set report.
     - For long-running batches, VM dynamic analysis, or any workflow likely to exceed MCP tool timeouts, use `submit_batch_workflow_job`, poll with `get_batch_job`, and review the saved report when the job completes.
     - Cross-sample reports are taxonomy-driven: use `sample_facts`, `behavior_matrix`, `attack_matrix`, `validation_status`, and `knowledge_links` before writing conclusions.
-13. Analyze `ai_output` first.
-14. If refined output is insufficient, call `get_raw_output_map` before `get_raw_output_by_id`, then fetch only the needed `raw_output_id`.
-15. Use `run_function` for one additional registered function result when needed.
-16. After analysis, produce the final AI summary according to the selected module's `final_result_schema` and save it with `save_session_result`.
-17. After the final summary is saved, ask whether to perform module code self-iteration if useful improvements were found.
-18. Iterate only selected-module files after the user approves iteration.
+17. Analyze `ai_output` first.
+18. If refined output is insufficient, call `get_raw_output_map` before `get_raw_output_by_id`, then fetch only the needed `raw_output_id`.
+19. Use `run_function` for one additional registered function result when needed.
+20. After analysis, produce the final AI summary according to the selected module's `final_result_schema` and save it with `save_session_result`.
+21. After the final summary is saved, ask whether to perform module code self-iteration if useful improvements were found.
+22. Iterate only selected-module files after the user approves iteration.
 
 When returned data is noisy, extract useful information first, then analyze it.
 
@@ -61,12 +66,17 @@ Before writing any new file, inspect the target module directory and nearby file
 | Tool | Role |
 | --- | --- |
 | `get_platform_skill` | Read this platform skill and the machine-readable platform playbook. |
+| `list_mcp_tools` | Return the grouped MCP tool registry with input, return, side-effect, and safety metadata. |
 | `get_platform_actions` | Return the platform startup menu actions. |
 | `list_modules` | List available modules before choosing module context. |
 | `get_module_template` | Return the default module directory and manifest format. |
 | `get_module_skill` | Load only the selected module's skill, playbook, and final result schema. |
 | `get_module_detail` | Inspect one module's manifest, functions, workflows, config fields, and validation. |
 | `get_module_actions` | Return the selected module's generic platform-owned menu actions. |
+| `preview_action` | Preview a module action without side effects and inspect its `execution_plan` and validation state. |
+| `list_runner_flows` | List module flows that can be compiled into a Go runner plan. |
+| `preview_runner_flow` | Compile one module flow into a Go runner plan without executing it. |
+| `run_action` | Run a selected module action and return compact outputs plus its `execution_plan`. |
 | `get_module_capabilities` | Return the selected module's cached, structured capability summary. |
 | `refresh_module_capabilities` | Force regeneration of a selected module capability summary cache. |
 | `get_module_ui` | Inspect one module's frontend page declarations. |
@@ -97,6 +107,7 @@ Before writing any new file, inspect the target module directory and nearby file
 | `get_ai_output` | Fetch refined AI-facing session output. |
 | `get_ai_output_by_raw_id` | Fetch one refined output item by `raw_output_id`. |
 | `get_raw_output_map` | List raw output ids before fetching raw details. |
+| `get_session_execution_status` | Fetch the latest lightweight execution progress, including current step, last completed step, failed step, and stopped reason. |
 | `get_raw_output_by_id` | Fetch one raw output item by id. |
 | `run_function` | Run one registered function in the current session. |
 | `get_mcp_file_access_policy` | Inspect allowed MCP file read/write scope. |

@@ -171,6 +171,47 @@ class SessionStore:
         }
         return self.save_session(session)
 
+    def save_execution_status(self, session_id: str, status: dict[str, Any]) -> dict[str, Any]:
+        saved = dict(status)
+        saved["session_id"] = session_id
+        saved["updated_at"] = self._now()
+        path = self._execution_status_file(session_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(saved, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return saved
+
+    def get_execution_status(self, session_id: str) -> dict[str, Any]:
+        path = self._execution_status_file(session_id)
+        if not path.is_file():
+            return {
+                "session_id": session_id,
+                "status": "not_started",
+                "updated_at": "",
+                "execution_plan": {},
+                "current_step": {},
+                "last_completed_step": {},
+                "failed_step": {},
+                "completed_steps": [],
+                "stopped_reason": "",
+            }
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return {
+                "session_id": session_id,
+                "status": "unknown",
+                "updated_at": "",
+                "execution_plan": {},
+                "current_step": {},
+                "last_completed_step": {},
+                "failed_step": {},
+                "completed_steps": [],
+                "stopped_reason": "",
+            }
+        return data
+
     def clear_raw_output(self, session_id: str) -> None:
         raw_output = {
             "session_id": session_id,
@@ -520,6 +561,9 @@ class SessionStore:
 
     def _raw_output_file(self, session_id: str) -> Path:
         return self._session_dir(session_id) / "raw_output" / "raw_output.json"
+
+    def _execution_status_file(self, session_id: str) -> Path:
+        return self._session_dir(session_id) / "execution_status.json"
 
     def _result_file(self, session_id: str) -> Path:
         return self._session_dir(session_id) / "result" / "result.json"

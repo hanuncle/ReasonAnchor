@@ -10,6 +10,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
+from security_function_platform.mcp_server.registry import mcp_tool_specs
 from security_function_platform.module_system import ModuleStore
 
 API_BASE = os.environ.get(
@@ -52,6 +53,14 @@ except ImportError:
 mcp = FastMCP(
     "security-function-platform: before analyzing a sample or target, call get_platform_skill first"
 )
+
+
+@mcp.tool()
+def list_mcp_tools() -> dict[str, Any]:
+    return {
+        "schema_id": "security_function_platform.mcp_tools.v1",
+        "tools": mcp_tool_specs(),
+    }
 
 
 @mcp.tool()
@@ -165,6 +174,29 @@ def preview_action(
 
 
 @mcp.tool()
+def list_runner_flows(module_id: str) -> dict[str, Any]:
+    return _request_json("GET", f"/api/modules/{_quote(module_id)}/runner/flows")
+
+
+@mcp.tool()
+def preview_runner_flow(
+    module_id: str,
+    flow_id: str,
+    session_id: str = "",
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _request_json(
+        "POST",
+        f"/api/modules/{_quote(module_id)}/runner/flows/preview",
+        {
+            "flow_id": flow_id,
+            "session_id": session_id,
+            "params": params or {},
+        },
+    )
+
+
+@mcp.tool()
 def run_action(
     session_id: str,
     module_id: str,
@@ -188,6 +220,8 @@ def run_action(
         "action_id": response.get("action_id", action_id),
         "status": response.get("status", ""),
         "summary": response.get("summary", {}),
+        "execution_plan": response.get("execution_plan", {}),
+        "execution_status": response.get("execution_status", {}),
         "raw_output_items": response.get("raw_output_items", []),
         "ai_output_items": response.get("ai_output_items", []),
         "allowed_next_actions": response.get("allowed_next_actions", []),
@@ -371,6 +405,11 @@ def get_raw_output_map(session_id: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def get_session_execution_status(session_id: str) -> dict[str, Any]:
+    return _request_json("GET", f"/api/sessions/{_quote(session_id)}/execution-status")
+
+
+@mcp.tool()
 def get_raw_output_by_id(session_id: str, raw_output_id: str) -> dict[str, Any]:
     return _request_json(
         "GET",
@@ -503,6 +542,7 @@ def get_platform_skill() -> dict[str, Any]:
         "playbook": playbook,
         "module_loading": {
             "rule": "Call list_modules first, ask or infer the selected module, then call get_module_skill(module_id) only for the selected module skill, playbook, and final_result_schema.",
+            "tool_registry_tool": "list_mcp_tools",
             "list_modules_tool": "list_modules",
             "module_skill_tool": "get_module_skill",
             "module_detail_tool": "get_module_detail",
@@ -510,6 +550,7 @@ def get_platform_skill() -> dict[str, Any]:
             "module_actions_tool": "get_module_actions",
             "action_preview_tool": "preview_action",
             "action_run_tool": "run_action",
+            "action_execution_plan_contract": "preview_action and run_action return execution_plan so an agent can inspect function dependencies before or after execution.",
             "module_capabilities_tool": "get_module_capabilities",
             "module_capabilities_refresh_tool": "refresh_module_capabilities",
             "module_template_tool": "get_module_template",

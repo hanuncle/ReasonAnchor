@@ -2,6 +2,7 @@ from security_function_platform.mcp_server import server
 
 
 EXPECTED_TOOLS = {
+    "list_mcp_tools",
     "upload_sample",
     "upload_samples",
     "create_target_session",
@@ -15,6 +16,10 @@ EXPECTED_TOOLS = {
     "get_module_template",
     "get_module_detail",
     "get_module_actions",
+    "preview_action",
+    "list_runner_flows",
+    "preview_runner_flow",
+    "run_action",
     "get_module_capabilities",
     "refresh_module_capabilities",
     "get_module_skill",
@@ -36,6 +41,7 @@ EXPECTED_TOOLS = {
     "list_sample_set_reports",
     "get_sample_set_report",
     "get_raw_output_map",
+    "get_session_execution_status",
     "get_raw_output_by_id",
     "get_ai_output",
     "get_ai_output_by_raw_id",
@@ -52,6 +58,7 @@ def test_mcp_server_imports_and_exposes_tool_functions() -> None:
     assert {name for name in EXPECTED_TOOLS if hasattr(server, name)} == EXPECTED_TOOLS
     if hasattr(server.mcp, "_tools"):
         assert set(server.mcp._tools) == EXPECTED_TOOLS
+    assert {tool["name"] for tool in server.list_mcp_tools()["tools"]} == EXPECTED_TOOLS
 
 
 def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
@@ -63,6 +70,25 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
             return {
                 "summary": {"status": "completed"},
                 "ai_output_item": {"raw_output_id": "raw-002-hash"},
+            }
+        if path.endswith("/actions/preview"):
+            return {
+                "ready": True,
+                "execution_plan": {"nodes": []},
+                "validation_errors": [],
+            }
+        if path.endswith("/actions/run"):
+            return {
+                "session_id": "session",
+                "module_id": "malware_analysis",
+                "action_id": "malware.sample_intake",
+                "status": "completed",
+                "summary": {"status": "completed"},
+                "execution_plan": {"nodes": []},
+                "execution_status": {"status": "completed"},
+                "raw_output_items": [],
+                "ai_output_items": [],
+                "allowed_next_actions": [],
             }
         if path == "/api/batches/run":
             return {
@@ -99,6 +125,7 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(server, "_upload_file", fake_upload)
     monkeypatch.setattr(server, "_upload_files", fake_uploads)
 
+    assert server.list_mcp_tools()["schema_id"] == "security_function_platform.mcp_tools.v1"
     assert server.upload_sample(str(sample)) == {"session_id": "demo"}
     assert server.upload_samples([str(sample), str(sample_two)])["count"] == 2
     assert server.create_target_session(
@@ -119,6 +146,24 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
     assert server.get_module_template()["path"] == "/api/modules/template"
     assert server.get_module_detail("reverse")["path"] == "/api/modules/reverse"
     assert server.get_module_actions("reverse")["path"] == "/api/modules/reverse/actions"
+    assert server.preview_action(
+        "malware_analysis",
+        "malware.sample_intake",
+        "session",
+    )["execution_plan"]["nodes"] == []
+    assert server.list_runner_flows("malware_analysis")["path"] == (
+        "/api/modules/malware_analysis/runner/flows"
+    )
+    assert server.preview_runner_flow(
+        "malware_analysis",
+        "interactive_single_sample_full",
+        "session",
+    )["path"] == "/api/modules/malware_analysis/runner/flows/preview"
+    assert server.run_action(
+        "session",
+        "malware_analysis",
+        "malware.sample_intake",
+    )["execution_plan"]["nodes"] == []
     assert server.get_module_capabilities("reverse")["path"] == (
         "/api/modules/reverse/capabilities"
     )
@@ -156,6 +201,9 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
     assert server.list_sample_set_reports()["path"] == "/api/reports"
     assert server.get_sample_set_report("report")["path"] == "/api/reports/report"
     assert server.get_raw_output_map("session")["path"] == "/api/sessions/session/raw-output-map"
+    assert server.get_session_execution_status("session")["path"] == (
+        "/api/sessions/session/execution-status"
+    )
     assert server.get_raw_output_by_id("session", "raw-001-hash")["path"] == (
         "/api/sessions/session/raw-output/raw-001-hash"
     )
@@ -193,6 +241,31 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
         ("GET", "/api/modules/template", None),
         ("GET", "/api/modules/reverse", None),
         ("GET", "/api/modules/reverse/actions", None),
+        (
+            "POST",
+            "/api/modules/malware_analysis/actions/preview",
+            {"action_id": "malware.sample_intake", "session_id": "session"},
+        ),
+        ("GET", "/api/modules/malware_analysis/runner/flows", None),
+        (
+            "POST",
+            "/api/modules/malware_analysis/runner/flows/preview",
+            {
+                "flow_id": "interactive_single_sample_full",
+                "session_id": "session",
+                "params": {},
+            },
+        ),
+        (
+            "POST",
+            "/api/sessions/session/actions/run",
+            {
+                "module_id": "malware_analysis",
+                "action_id": "malware.sample_intake",
+                "params": {},
+                "approvals": {},
+            },
+        ),
         ("GET", "/api/modules/reverse/capabilities", None),
         ("POST", "/api/modules/reverse/capabilities/refresh", None),
         ("GET", "/api/modules/reverse/skill", None),
@@ -250,6 +323,7 @@ def test_mcp_tools_call_http_helpers(monkeypatch, tmp_path) -> None:
         ("GET", "/api/reports", None),
         ("GET", "/api/reports/report", None),
         ("GET", "/api/sessions/session/raw-output-map", None),
+        ("GET", "/api/sessions/session/execution-status", None),
         ("GET", "/api/sessions/session/raw-output/raw-001-hash", None),
         ("GET", "/api/sessions/session/ai-output", None),
         ("GET", "/api/sessions/session/ai-output/raw-001-hash", None),

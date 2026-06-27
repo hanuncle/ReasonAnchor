@@ -8,6 +8,7 @@ from security_function_platform.mcp_server import server
 
 MCP_TOOL_NAMES = [
     "get_platform_skill",
+    "list_mcp_tools",
     "upload_sample",
     "upload_samples",
     "create_target_session",
@@ -21,6 +22,10 @@ MCP_TOOL_NAMES = [
     "get_module_template",
     "get_module_detail",
     "get_module_actions",
+    "preview_action",
+    "list_runner_flows",
+    "preview_runner_flow",
+    "run_action",
     "get_module_capabilities",
     "refresh_module_capabilities",
     "get_module_skill",
@@ -44,6 +49,7 @@ MCP_TOOL_NAMES = [
     "get_ai_output",
     "get_ai_output_by_raw_id",
     "get_raw_output_map",
+    "get_session_execution_status",
     "get_raw_output_by_id",
     "run_function",
     "get_mcp_file_access_policy",

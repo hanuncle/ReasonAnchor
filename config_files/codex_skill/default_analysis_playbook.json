@@ -9,6 +9,7 @@
     "ask_initial_iteration_permission",
     "ensure_session",
     "inspect_functions",
+    "run_action",
     "choose_or_create_workflow",
     "run_workflow",
     "analyze_ai_output",
@@ -19,7 +20,8 @@
   ],
   "mcp_tools_by_step": {
     "read_platform_skill": [
-      "get_platform_skill"
+      "get_platform_skill",
+      "list_mcp_tools"
     ],
     "list_modules": [
       "get_platform_actions",
@@ -29,13 +31,15 @@
       "get_platform_actions",
       "list_modules",
       "get_module_actions",
-      "get_module_capabilities"
+      "get_module_capabilities",
+      "preview_action"
     ],
     "load_selected_module_skill": [
       "get_module_skill",
       "get_module_detail",
       "get_module_actions",
       "get_module_capabilities",
+      "list_runner_flows",
       "list_module_knowledge",
       "get_module_ui",
       "get_module_knowledge"
@@ -70,7 +74,8 @@
       "run_workflow",
       "run_batch_workflow",
       "submit_batch_workflow_job",
-      "get_batch_job"
+      "get_batch_job",
+      "get_session_execution_status"
     ],
     "analyze_ai_output": [
       "get_ai_output",
@@ -78,7 +83,8 @@
       "list_batch_jobs",
       "get_batch_job",
       "list_sample_set_reports",
-      "get_sample_set_report"
+      "get_sample_set_report",
+      "get_session_execution_status"
     ],
     "inspect_raw_output_when_needed": [
       "get_raw_output_map",
@@ -93,6 +99,13 @@
     ],
     "save_final_result": [
       "save_session_result"
+    ],
+    "run_action": [
+      "preview_action",
+      "list_runner_flows",
+      "preview_runner_flow",
+      "run_action",
+      "get_session_execution_status"
     ]
   },
   "module_usage_policy": {
@@ -841,9 +854,134 @@
       "do_not_use_when": [
         "The content is only an intermediate observation."
       ]
+    },
+    "list_mcp_tools": {
+      "purpose": "Return the grouped MCP tool registry with input, return, side-effect, and safety metadata.",
+      "use_when": [
+        "After get_platform_skill when the agent needs a current machine-readable view of MCP functions."
+      ],
+      "inputs": [],
+      "returns": [
+        "schema_id",
+        "tools"
+      ],
+      "do_not_use_when": [
+        "Do not use it as module analysis evidence."
+      ]
+    },
+    "preview_action": {
+      "purpose": "Preview a selected module action without side effects and expose its execution plan.",
+      "use_when": [
+        "Before run_action to inspect execution_plan, validation_errors, missing prior results, and approval needs."
+      ],
+      "inputs": [
+        "module_id",
+        "action_id",
+        "session_id"
+      ],
+      "returns": [
+        "ready",
+        "execution_plan",
+        "validation_errors",
+        "missing_results",
+        "required_approvals"
+      ],
+      "do_not_use_when": [
+        "Do not use it as proof that an action executed."
+      ]
+    },
+    "list_runner_flows": {
+      "purpose": "List module-declared flows that can be compiled into a Go runner plan.",
+      "use_when": [
+        "Before handing a module flow to the Go runner, or when the user asks which module flows are runner-ready."
+      ],
+      "inputs": [
+        "module_id"
+      ],
+      "returns": [
+        "runner metadata",
+        "flow list",
+        "flow source types"
+      ],
+      "do_not_use_when": [
+        "Do not use it as proof that a flow executed."
+      ]
+    },
+    "preview_runner_flow": {
+      "purpose": "Compile one module flow into a Go runner plan without executing it.",
+      "use_when": [
+        "A long action sequence or workflow needs a DAG task plan for the Go runner."
+      ],
+      "inputs": [
+        "module_id",
+        "flow_id",
+        "session_id",
+        "params"
+      ],
+      "returns": [
+        "ready",
+        "runner_plan",
+        "execution_plan",
+        "validation_errors"
+      ],
+      "do_not_use_when": [
+        "Do not treat preview as sample execution or VM activity."
+      ]
+    },
+    "run_action": {
+      "purpose": "Run one selected module action against a session and return compact outputs plus its execution plan.",
+      "use_when": [
+        "After preview_action is ready and all required approvals/configuration are satisfied."
+      ],
+      "inputs": [
+        "session_id",
+        "module_id",
+        "action_id",
+        "params",
+        "approvals"
+      ],
+      "returns": [
+        "session_id",
+        "module_id",
+        "action_id",
+        "status",
+        "summary",
+        "execution_plan",
+        "raw_output_items",
+        "ai_output_items",
+        "allowed_next_actions"
+      ],
+      "do_not_use_when": [
+        "Do not run high-risk actions unless the selected module workflow and user approval allow it."
+      ]
+    },
+    "get_session_execution_status": {
+      "purpose": "Return the latest lightweight execution progress for a session.",
+      "use_when": [
+        "While a long action or workflow is running, poll this to report the current step, last completed step, failed step, and stopped reason."
+      ],
+      "inputs": [
+        "session_id"
+      ],
+      "returns": [
+        "status",
+        "execution_plan",
+        "current_step",
+        "last_completed_step",
+        "failed_step",
+        "completed_steps",
+        "stopped_reason"
+      ],
+      "do_not_use_when": [
+        "Do not use it as behavior evidence; use raw output or ai_output for evidence."
+      ]
     }
   },
   "decision_rules": [
+    {
+      "condition": "long action or workflow is running",
+      "action": "poll_get_session_execution_status_to_report_current_step_and_failures"
+    },
     {
       "condition": "module not selected",
       "action": "list_modules_then_ask_user_to_select_module"
@@ -851,6 +989,10 @@
     {
       "condition": "module selected",
       "action": "call_get_module_skill_for_that_module_only"
+    },
+    {
+      "condition": "module action is selected",
+      "action": "call_preview_action_first_then_run_action_only_when_ready_and_approved"
     },
     {
       "condition": "analysis work is about to start",

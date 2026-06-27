@@ -286,6 +286,8 @@ class ModuleStore:
         module_root = self._module_root(manifest)
         path = self._safe_join(module_root, "actions/actions.json")
         data = self._read_json_if_exists(path)
+        if isinstance(data, dict):
+            data = data.get("actions")
         if not isinstance(data, list):
             return []
         return [item for item in data if isinstance(item, dict) and item.get("id")]

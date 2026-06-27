@@ -9,10 +9,31 @@
       "description": "Compute hashes, detect file type, parse common formats, and collect byte statistics.",
       "requires_session": true,
       "steps": [
-        {"function_id": "hash.compute", "params": {}},
-        {"function_id": "file.type_detect", "params": {}},
-        {"function_id": "file.multi_format_parse", "params": {}},
-        {"function_id": "file.byte_stats", "params": {}}
+        {
+          "function_id": "hash.compute",
+          "params": {},
+          "step_id": "basic_identify_01_compute"
+        },
+        {
+          "function_id": "file.type_detect",
+          "params": {},
+          "step_id": "basic_identify_02_type_detect"
+        },
+        {
+          "function_id": "file.multi_format_parse",
+          "params": {},
+          "step_id": "basic_identify_03_multi_format_parse"
+        },
+        {
+          "function_id": "file.byte_stats",
+          "params": {},
+          "step_id": "basic_identify_04_byte_stats",
+          "depends_on": [
+            "basic_identify_01_compute",
+            "basic_identify_02_type_detect",
+            "basic_identify_03_multi_format_parse"
+          ]
+        }
       ],
       "allowed_next_actions": [
         "reverse.static_feature_extract",
@@ -37,11 +58,40 @@
         "byte_stats"
       ],
       "steps": [
-        {"function_id": "pe.deep_parse", "params": {}},
-        {"function_id": "strings.extract", "params": {"min_length": 4, "max_strings": 5000}},
-        {"function_id": "strings.enhanced_extract", "params": {"min_length": 4, "max_strings": 5000}},
-        {"function_id": "ioc.extract", "params": {}},
-        {"function_id": "packer.detect_enhanced", "params": {}}
+        {
+          "function_id": "pe.deep_parse",
+          "params": {},
+          "step_id": "static_feature_extract_01_deep_parse"
+        },
+        {
+          "function_id": "strings.extract",
+          "params": {
+            "min_length": 4,
+            "max_strings": 5000
+          },
+          "step_id": "static_feature_extract_02_extract"
+        },
+        {
+          "function_id": "strings.enhanced_extract",
+          "params": {
+            "min_length": 4,
+            "max_strings": 5000
+          },
+          "step_id": "static_feature_extract_03_enhanced_extract"
+        },
+        {
+          "function_id": "ioc.extract",
+          "params": {},
+          "step_id": "static_feature_extract_04_extract",
+          "depends_on": [
+            "static_feature_extract_02_extract"
+          ]
+        },
+        {
+          "function_id": "packer.detect_enhanced",
+          "params": {},
+          "step_id": "static_feature_extract_05_detect_enhanced"
+        }
       ],
       "allowed_next_actions": [
         "reverse.static_behavior_mapping",
@@ -67,8 +117,19 @@
         "packer_detection"
       ],
       "steps": [
-        {"function_id": "behavior.map_static", "params": {}},
-        {"function_id": "attack.map_static", "params": {}}
+        {
+          "function_id": "behavior.map_static",
+          "params": {},
+          "step_id": "static_behavior_mapping_01_map_static"
+        },
+        {
+          "function_id": "attack.map_static",
+          "params": {},
+          "step_id": "static_behavior_mapping_02_map_static",
+          "depends_on": [
+            "static_behavior_mapping_01_map_static"
+          ]
+        }
       ],
       "allowed_next_actions": [
         "reverse.vm_preflight",
@@ -94,8 +155,21 @@
         "vmware.guest_password"
       ],
       "steps": [
-        {"function_id": "dynamic.vm_preflight", "params": {"require_guest_credentials": true}},
-        {"function_id": "dynamic.vm_status", "params": {}}
+        {
+          "function_id": "dynamic.vm_preflight",
+          "params": {
+            "require_guest_credentials": true
+          },
+          "step_id": "vm_preflight_01_vm_preflight"
+        },
+        {
+          "function_id": "dynamic.vm_status",
+          "params": {},
+          "step_id": "vm_preflight_02_vm_status",
+          "depends_on": [
+            "vm_preflight_01_vm_preflight"
+          ]
+        }
       ],
       "allowed_next_actions": [
         "reverse.vm_restore",
@@ -129,7 +203,13 @@
         "confirm_restore": "I_UNDERSTAND_RESTORE_VM_SNAPSHOT"
       },
       "steps": [
-        {"function_id": "dynamic.vm_restore_snapshot", "params": {"stop_if_running": true}}
+        {
+          "function_id": "dynamic.vm_restore_snapshot",
+          "params": {
+            "stop_if_running": true
+          },
+          "step_id": "vm_restore_01_vm_restore_snapshot"
+        }
       ],
       "allowed_next_actions": [
         "reverse.vm_upload_sample",
@@ -161,7 +241,13 @@
         "vmware.guest_password"
       ],
       "steps": [
-        {"function_id": "dynamic.vm_upload_sample", "params": {"timeout_seconds": 45}}
+        {
+          "function_id": "dynamic.vm_upload_sample",
+          "params": {
+            "timeout_seconds": 45
+          },
+          "step_id": "vm_upload_sample_01_vm_upload_sample"
+        }
       ],
       "allowed_next_actions": [
         "reverse.vm_run_sample",
@@ -199,7 +285,13 @@
         "confirm_execute": "I_UNDERSTAND_RUN_SAMPLE_IN_VM"
       },
       "steps": [
-        {"function_id": "dynamic.vm_run_sample", "params": {"duration_seconds": 60}}
+        {
+          "function_id": "dynamic.vm_run_sample",
+          "params": {
+            "duration_seconds": 60
+          },
+          "step_id": "vm_run_sample_01_vm_run_sample"
+        }
       ],
       "allowed_next_actions": [
         "reverse.vm_collect_telemetry",
@@ -231,7 +323,13 @@
         "vmware.guest_password"
       ],
       "steps": [
-        {"function_id": "dynamic.vm_collect_sysmon", "params": {"last_minutes": 60}}
+        {
+          "function_id": "dynamic.vm_collect_sysmon",
+          "params": {
+            "last_minutes": 60
+          },
+          "step_id": "vm_collect_telemetry_01_vm_collect_sysmon"
+        }
       ],
       "allowed_next_actions": [
         "reverse.dynamic_behavior_mapping",
@@ -255,7 +353,11 @@
         "dynamic_telemetry"
       ],
       "steps": [
-        {"function_id": "behavior.map_dynamic", "params": {}}
+        {
+          "function_id": "behavior.map_dynamic",
+          "params": {},
+          "step_id": "dynamic_behavior_mapping_01_map_dynamic"
+        }
       ],
       "allowed_next_actions": [
         "reverse.static_dynamic_compare",
@@ -291,11 +393,51 @@
         "confirm_execute": "I_UNDERSTAND_RUN_SAMPLE_IN_VM"
       },
       "steps": [
-        {"function_id": "dynamic.vm_restore_snapshot", "params": {"stop_if_running": true}},
-        {"function_id": "dynamic.vm_upload_sample", "params": {"timeout_seconds": 45}},
-        {"function_id": "dynamic.vm_run_sample", "params": {"duration_seconds": 60}},
-        {"function_id": "dynamic.vm_collect_sysmon", "params": {"last_minutes": 60}},
-        {"function_id": "behavior.map_dynamic", "params": {}}
+        {
+          "function_id": "dynamic.vm_restore_snapshot",
+          "params": {
+            "stop_if_running": true
+          },
+          "step_id": "dynamic_observe_01_vm_restore_snapshot"
+        },
+        {
+          "function_id": "dynamic.vm_upload_sample",
+          "params": {
+            "timeout_seconds": 45
+          },
+          "step_id": "dynamic_observe_02_vm_upload_sample",
+          "depends_on": [
+            "dynamic_observe_01_vm_restore_snapshot"
+          ]
+        },
+        {
+          "function_id": "dynamic.vm_run_sample",
+          "params": {
+            "duration_seconds": 60
+          },
+          "step_id": "dynamic_observe_03_vm_run_sample",
+          "depends_on": [
+            "dynamic_observe_02_vm_upload_sample"
+          ]
+        },
+        {
+          "function_id": "dynamic.vm_collect_sysmon",
+          "params": {
+            "last_minutes": 60
+          },
+          "step_id": "dynamic_observe_04_vm_collect_sysmon",
+          "depends_on": [
+            "dynamic_observe_03_vm_run_sample"
+          ]
+        },
+        {
+          "function_id": "behavior.map_dynamic",
+          "params": {},
+          "step_id": "dynamic_observe_05_map_dynamic",
+          "depends_on": [
+            "dynamic_observe_04_vm_collect_sysmon"
+          ]
+        }
       ],
       "allowed_next_actions": [
         "reverse.static_dynamic_compare",
@@ -320,8 +462,19 @@
         "dynamic_behavior_map"
       ],
       "steps": [
-        {"function_id": "validation.compare_static_dynamic", "params": {}},
-        {"function_id": "validation.plan_focused_dynamic", "params": {}}
+        {
+          "function_id": "validation.compare_static_dynamic",
+          "params": {},
+          "step_id": "static_dynamic_compare_01_compare_static_dynamic"
+        },
+        {
+          "function_id": "validation.plan_focused_dynamic",
+          "params": {},
+          "step_id": "static_dynamic_compare_02_plan_focused_dynamic",
+          "depends_on": [
+            "static_dynamic_compare_01_compare_static_dynamic"
+          ]
+        }
       ],
       "allowed_next_actions": [
         "reverse.focused_validation",
@@ -365,7 +518,8 @@
             "restore_after": true,
             "duration_seconds": 30,
             "last_minutes": 30
-          }
+          },
+          "step_id": "focused_validation_01_vm_validate_behavior"
         }
       ],
       "allowed_next_actions": [
@@ -389,11 +543,43 @@
         "ida.path"
       ],
       "steps": [
-        {"function_id": "tool.ida_function_analyze", "params": {}},
-        {"function_id": "tool.ida_function_features", "params": {}},
-        {"function_id": "validation.compare_static_dynamic_function", "params": {}},
-        {"function_id": "validation.plan_focused_function_level", "params": {}},
-        {"function_id": "tool.focused_function_level_analysis", "params": {}}
+        {
+          "function_id": "tool.ida_function_analyze",
+          "params": {},
+          "step_id": "ida_function_level_analysis_01_ida_function_analyze"
+        },
+        {
+          "function_id": "tool.ida_function_features",
+          "params": {},
+          "step_id": "ida_function_level_analysis_02_ida_function_features",
+          "depends_on": [
+            "ida_function_level_analysis_01_ida_function_analyze"
+          ]
+        },
+        {
+          "function_id": "validation.compare_static_dynamic_function",
+          "params": {},
+          "step_id": "ida_function_level_analysis_03_compare_static_dynamic_function",
+          "depends_on": [
+            "ida_function_level_analysis_02_ida_function_features"
+          ]
+        },
+        {
+          "function_id": "validation.plan_focused_function_level",
+          "params": {},
+          "step_id": "ida_function_level_analysis_04_plan_focused_function_level",
+          "depends_on": [
+            "ida_function_level_analysis_03_compare_static_dynamic_function"
+          ]
+        },
+        {
+          "function_id": "tool.focused_function_level_analysis",
+          "params": {},
+          "step_id": "ida_function_level_analysis_05_focused_function_level_analysis",
+          "depends_on": [
+            "ida_function_level_analysis_04_plan_focused_function_level"
+          ]
+        }
       ],
       "allowed_next_actions": [
         "reverse.propose_knowledge_update",
@@ -423,7 +609,8 @@
           "params": {
             "include_session_sample": true,
             "include_download_cleanup": true
-          }
+          },
+          "step_id": "cleanup_local_sample_01_cleanup_local"
         }
       ],
       "allowed_next_actions": [
@@ -441,7 +628,11 @@
       "description": "Store an AI-proposed reverse knowledge update as a pending candidate for human review without modifying official knowledge files.",
       "requires_session": true,
       "steps": [
-        {"function_id": "knowledge.update_candidate", "params": {}}
+        {
+          "function_id": "knowledge.update_candidate",
+          "params": {},
+          "step_id": "propose_knowledge_update_01_update_candidate"
+        }
       ],
       "allowed_next_actions": [
         "reverse.generate_report",

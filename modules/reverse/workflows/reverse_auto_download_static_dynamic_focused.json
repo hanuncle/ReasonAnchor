@@ -2,7 +2,14 @@
   "workflow_id": "reverse_auto_download_static_dynamic_focused",
   "name": "reverse_auto_download_static_dynamic_focused",
   "description": "High-risk workflow that downloads one MalwareBazaar sample into quarantine, runs static analysis, runs broad VMware dynamic analysis, compares static and dynamic behaviors, then runs one focused dynamic validation target for behavior that was not observed dynamically.",
-  "tags": ["reverse", "malwarebazaar", "static", "dynamic", "vmware", "focused-validation"],
+  "tags": [
+    "reverse",
+    "malwarebazaar",
+    "static",
+    "dynamic",
+    "vmware",
+    "focused-validation"
+  ],
   "risk": "high",
   "network": true,
   "config_required": true,
@@ -16,59 +23,238 @@
           "confirm_download": "I_UNDERSTAND_DOWNLOAD_MALWARE_SAMPLE",
           "query": "get_recent",
           "selector": "100",
-          "allowed_file_types": ["exe"],
-          "exclude_keywords": ["wannacry", "ransom", "ransomware", "worm"],
+          "allowed_file_types": [
+            "exe"
+          ],
+          "exclude_keywords": [
+            "wannacry",
+            "ransom",
+            "ransomware",
+            "worm"
+          ],
           "max_download_bytes": 8388608
-        }
+        },
+        "step_id": "reverse_auto_download_static_dynamic_focused_01_download_sample"
       },
-      {"function_id": "hash.compute", "params": {}},
-      {"function_id": "file.type_detect", "params": {}},
-      {"function_id": "file.multi_format_parse", "params": {}},
-      {"function_id": "file.byte_stats", "params": {}},
-      {"function_id": "pe.deep_parse", "params": {}},
-      {"function_id": "strings.extract", "params": {"min_length": 4, "max_strings": 5000}},
-      {"function_id": "strings.enhanced_extract", "params": {"min_length": 4, "max_strings": 5000}},
-      {"function_id": "ioc.extract", "params": {}},
-      {"function_id": "packer.detect_enhanced", "params": {}},
-      {"function_id": "behavior.map_static", "params": {}},
-      {"function_id": "attack.map_static", "params": {}},
-      {"function_id": "ti.malwarebazaar.hash_lookup", "params": {}},
-      {"function_id": "ti.virustotal.hash_lookup", "params": {}},
-      {"function_id": "ti.virustotal.behaviour_summary", "params": {}},
+      {
+        "function_id": "hash.compute",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_02_compute",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_01_download_sample"
+        ]
+      },
+      {
+        "function_id": "file.type_detect",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_03_type_detect",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_02_compute"
+        ]
+      },
+      {
+        "function_id": "file.multi_format_parse",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_04_multi_format_parse",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_03_type_detect"
+        ]
+      },
+      {
+        "function_id": "file.byte_stats",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_05_byte_stats",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_04_multi_format_parse"
+        ]
+      },
+      {
+        "function_id": "pe.deep_parse",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_06_deep_parse",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_05_byte_stats"
+        ]
+      },
+      {
+        "function_id": "strings.extract",
+        "params": {
+          "min_length": 4,
+          "max_strings": 5000
+        },
+        "step_id": "reverse_auto_download_static_dynamic_focused_07_extract",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_06_deep_parse"
+        ]
+      },
+      {
+        "function_id": "strings.enhanced_extract",
+        "params": {
+          "min_length": 4,
+          "max_strings": 5000
+        },
+        "step_id": "reverse_auto_download_static_dynamic_focused_08_enhanced_extract",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_07_extract"
+        ]
+      },
+      {
+        "function_id": "ioc.extract",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_09_extract",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_08_enhanced_extract"
+        ]
+      },
+      {
+        "function_id": "packer.detect_enhanced",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_10_detect_enhanced",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_09_extract"
+        ]
+      },
+      {
+        "function_id": "behavior.map_static",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_11_map_static",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_10_detect_enhanced"
+        ]
+      },
+      {
+        "function_id": "attack.map_static",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_12_map_static",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_11_map_static"
+        ]
+      },
+      {
+        "function_id": "ti.malwarebazaar.hash_lookup",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_13_hash_lookup",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_12_map_static"
+        ]
+      },
+      {
+        "function_id": "ti.virustotal.hash_lookup",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_14_hash_lookup",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_13_hash_lookup"
+        ]
+      },
+      {
+        "function_id": "ti.virustotal.behaviour_summary",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_15_behaviour_summary",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_14_hash_lookup"
+        ]
+      },
       {
         "function_id": "dynamic.vm_preflight",
         "params": {
           "require_guest_credentials": true
-        }
+        },
+        "step_id": "reverse_auto_download_static_dynamic_focused_16_vm_preflight",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_15_behaviour_summary"
+        ]
       },
-      {"function_id": "dynamic.vm_status", "params": {}},
+      {
+        "function_id": "dynamic.vm_status",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_17_vm_status",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_16_vm_preflight"
+        ]
+      },
       {
         "function_id": "dynamic.vm_restore_snapshot",
         "params": {
           "confirm_restore": "I_UNDERSTAND_RESTORE_VM_SNAPSHOT",
           "stop_if_running": true
-        }
+        },
+        "step_id": "reverse_auto_download_static_dynamic_focused_18_vm_restore_snapshot",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_17_vm_status"
+        ]
       },
-      {"function_id": "dynamic.vm_upload_sample", "params": {}},
+      {
+        "function_id": "dynamic.vm_upload_sample",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_19_vm_upload_sample",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_18_vm_restore_snapshot"
+        ]
+      },
       {
         "function_id": "dynamic.vm_run_sample",
         "params": {
           "confirm_execute": "I_UNDERSTAND_RUN_SAMPLE_IN_VM",
           "duration_seconds": 60
-        }
+        },
+        "step_id": "reverse_auto_download_static_dynamic_focused_20_vm_run_sample",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_19_vm_upload_sample"
+        ]
       },
-      {"function_id": "dynamic.vm_collect_sysmon", "params": {"last_minutes": 60}},
-      {"function_id": "dynamic.vm_save_snapshot", "params": {}},
+      {
+        "function_id": "dynamic.vm_collect_sysmon",
+        "params": {
+          "last_minutes": 60
+        },
+        "step_id": "reverse_auto_download_static_dynamic_focused_21_vm_collect_sysmon",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_20_vm_run_sample"
+        ]
+      },
+      {
+        "function_id": "dynamic.vm_save_snapshot",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_22_vm_save_snapshot",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_21_vm_collect_sysmon"
+        ]
+      },
       {
         "function_id": "dynamic.vm_restore_snapshot",
         "params": {
           "confirm_restore": "I_UNDERSTAND_RESTORE_VM_SNAPSHOT",
           "stop_if_running": true
-        }
+        },
+        "step_id": "reverse_auto_download_static_dynamic_focused_23_vm_restore_snapshot",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_22_vm_save_snapshot"
+        ]
       },
-      {"function_id": "behavior.map_dynamic", "params": {}},
-      {"function_id": "validation.compare_static_dynamic", "params": {}},
-      {"function_id": "validation.plan_focused_dynamic", "params": {}},
+      {
+        "function_id": "behavior.map_dynamic",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_24_map_dynamic",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_23_vm_restore_snapshot"
+        ]
+      },
+      {
+        "function_id": "validation.compare_static_dynamic",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_25_compare_static_dynamic",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_24_map_dynamic"
+        ]
+      },
+      {
+        "function_id": "validation.plan_focused_dynamic",
+        "params": {},
+        "step_id": "reverse_auto_download_static_dynamic_focused_26_plan_focused_dynamic",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_25_compare_static_dynamic"
+        ]
+      },
       {
         "function_id": "dynamic.vm_validate_behavior",
         "params": {
@@ -79,7 +265,11 @@
           "save_snapshot_after": true,
           "duration_seconds": 30,
           "last_minutes": 30
-        }
+        },
+        "step_id": "reverse_auto_download_static_dynamic_focused_27_vm_validate_behavior",
+        "depends_on": [
+          "reverse_auto_download_static_dynamic_focused_26_plan_focused_dynamic"
+        ]
       }
     ]
   }

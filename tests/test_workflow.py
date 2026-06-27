@@ -52,6 +52,23 @@ class ActivateSampleFunction(AnalysisFunction):
         )
 
 
+class RecordingFunction(AnalysisFunction):
+    category = "test"
+
+    def __init__(self, function_id: str, result_key: str) -> None:
+        self.id = function_id
+        self.name = function_id
+        self.result_key = result_key
+
+    def run(self, context, params):
+        context.setdefault("calls", []).append(self.id)
+        return FunctionResult(
+            function_id=self.id,
+            result_key=self.result_key,
+            data={"called": self.id},
+        )
+
+
 def build_registry() -> FunctionRegistry:
     registry = FunctionRegistry()
     registry.register(HashComputeFunction())
@@ -117,6 +134,33 @@ def test_workflow_definition_from_dict_defaults_empty_name() -> None:
     assert workflow.steps == []
 
 
+def test_workflow_step_preserves_runner_metadata() -> None:
+    workflow = WorkflowDefinition.from_dict(
+        {
+            "name": "runner_metadata",
+            "steps": [
+                {
+                    "function_id": "dynamic.vm_run_sample",
+                    "params": {"duration_seconds": 30},
+                    "step_id": "run",
+                    "timeout_seconds": 120,
+                    "when": {"path": "config.vm.enabled", "equals": True},
+                    "resource_locks": ["vm:default"],
+                    "parallel_safe": False,
+                    "estimated_duration_seconds": 30,
+                }
+            ],
+        }
+    )
+
+    assert workflow.to_dict()["steps"][0]["timeout_seconds"] == 120
+    plan_node = WorkflowRunner().to_execution_plan(workflow).to_dict()["nodes"][0]
+    assert plan_node["timeout_seconds"] == 120
+    assert plan_node["when"] == {"path": "config.vm.enabled", "equals": True}
+    assert plan_node["resource_locks"] == ["vm:default"]
+    assert plan_node["estimated_duration_seconds"] == 30
+
+
 def test_workflow_runner_validate_registered_functions_returns_empty_list() -> None:
     workflow = WorkflowDefinition(
         name="basic_static_analysis",
@@ -137,6 +181,105 @@ def test_workflow_runner_validate_unknown_function_returns_error() -> None:
             "code": "unknown_function",
             "function_id": "unknown.fn",
             "message": "Unknown function: unknown.fn",
+        }
+    ]
+
+
+def test_workflow_runner_orders_steps_by_dependencies() -> None:
+    registry = FunctionRegistry()
+    registry.register(RecordingFunction("test.a", "a"))
+    registry.register(RecordingFunction("test.b", "b"))
+    registry.register(RecordingFunction("test.c", "c"))
+    workflow = WorkflowDefinition(
+        name="dag",
+        steps=[
+            WorkflowStep("test.c", step_id="c", depends_on=["a", "b"]),
+            WorkflowStep("test.a", step_id="a"),
+            WorkflowStep("test.b", step_id="b"),
+        ],
+    )
+    context = {}
+
+    WorkflowRunner().run(registry, workflow, context)
+
+    assert context["calls"] == ["test.a", "test.b", "test.c"]
+    assert context["execution_plan"]["order"] == ["a", "b", "c"]
+    assert context["execution_plan"]["status"] == "completed"
+    assert context["execution_plan"]["last_completed_node"]["node_id"] == "c"
+
+
+def test_workflow_runner_reports_current_step_on_start() -> None:
+    registry = FunctionRegistry()
+    registry.register(RecordingFunction("test.a", "a"))
+    workflow = WorkflowDefinition(
+        name="progress",
+        steps=[WorkflowStep("test.a", step_id="a")],
+    )
+    context = {}
+    snapshots = []
+
+    WorkflowRunner().run(
+        registry,
+        workflow,
+        context,
+        on_step_start=lambda _index, _node: snapshots.append(
+            dict(context["execution_plan"]["current_node"])
+        ),
+    )
+
+    assert snapshots == [
+        {
+            "node_id": "a",
+            "function_id": "test.a",
+            "status": "running",
+            "source_index": 1,
+            "depends_on": [],
+            "requires_results": [],
+        }
+    ]
+
+
+def test_workflow_runner_blocks_step_when_required_result_is_missing() -> None:
+    registry = FunctionRegistry()
+    registry.register(RecordingFunction("test.needs", "needs"))
+    workflow = WorkflowDefinition(
+        name="missing_result",
+        steps=[
+            WorkflowStep(
+                "test.needs",
+                step_id="needs",
+                requires_results=["missing"],
+                stop_on_error=True,
+            ),
+        ],
+    )
+    context = {"results": {}}
+
+    WorkflowRunner().run(registry, workflow, context)
+
+    assert "calls" not in context
+    blocked = context["results"]["needs_blocked"]
+    assert blocked["status"] == "error"
+    assert blocked["error"]["missing_results"] == ["missing"]
+    assert context["execution_plan"]["status"] == "stopped"
+    assert context["execution_plan"]["failed_node"]["node_id"] == "needs"
+    assert context["execution_plan"]["stopped_reason"] == "stop_on_error"
+
+
+def test_workflow_runner_validate_dependency_errors() -> None:
+    registry = FunctionRegistry()
+    registry.register(RecordingFunction("test.a", "a"))
+    workflow = WorkflowDefinition(
+        name="bad_dependency",
+        steps=[WorkflowStep("test.a", step_id="a", depends_on=["missing"])],
+    )
+
+    assert WorkflowRunner().validate(registry, workflow) == [
+        {
+            "code": "unknown_dependency",
+            "node_id": "a",
+            "dependency": "missing",
+            "message": "Unknown dependency for a: missing",
         }
     ]
 

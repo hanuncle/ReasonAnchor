@@ -2,7 +2,12 @@
   "workflow_id": "recon_scope_prepare_flow",
   "name": "recon_scope_prepare_flow",
   "description": "No-network preparation workflow for target input, authorization scope validation, normalization, initial attack-surface shell, next-step options, and a report draft.",
-  "tags": ["recon_scan", "prepare", "scope", "no-network"],
+  "tags": [
+    "recon_scan",
+    "prepare",
+    "scope",
+    "no-network"
+  ],
   "risk": "low",
   "network": false,
   "config_required": false,
@@ -17,25 +22,42 @@
           "targets": [],
           "authorized_scope": [],
           "exclude": []
-        }
+        },
+        "step_id": "recon_scope_prepare_flow_01_scope_validate"
       },
       {
         "function_id": "recon.target_normalize",
-        "params": {}
+        "params": {},
+        "step_id": "recon_scope_prepare_flow_02_target_normalize",
+        "depends_on": [
+          "recon_scope_prepare_flow_01_scope_validate"
+        ]
       },
       {
         "function_id": "recon.attack_surface_summarize",
-        "params": {}
+        "params": {},
+        "step_id": "recon_scope_prepare_flow_03_attack_surface_summarize",
+        "depends_on": [
+          "recon_scope_prepare_flow_02_target_normalize"
+        ]
       },
       {
         "function_id": "recon.next_step_options",
-        "params": {}
+        "params": {},
+        "step_id": "recon_scope_prepare_flow_04_next_step_options",
+        "depends_on": [
+          "recon_scope_prepare_flow_03_attack_surface_summarize"
+        ]
       },
       {
         "function_id": "recon.report_generate",
         "params": {
           "report_stage": "scope_prepare"
-        }
+        },
+        "step_id": "recon_scope_prepare_flow_05_report_generate",
+        "depends_on": [
+          "recon_scope_prepare_flow_04_next_step_options"
+        ]
       }
     ]
   }

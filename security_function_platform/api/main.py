@@ -19,7 +19,7 @@ from security_function_platform.api.module_capabilities import ModuleCapabilityC
 from security_function_platform.api.session_store import SessionStore
 from security_function_platform.api.workflow_store import WorkflowStore
 from security_function_platform.core.function_registry import FunctionRegistry
-from security_function_platform.core.workflow import WorkflowDefinition, WorkflowRunner
+from security_function_platform.core.workflow import WorkflowDefinition, WorkflowRunner, WorkflowStep
 from security_function_platform.module_system import ModuleStore
 from security_function_platform.raw_sorting.sorter import sort_raw_output_item, sort_raw_outputs
 
@@ -29,6 +29,8 @@ workflow_store = WorkflowStore()
 module_store = ModuleStore()
 runner = WorkflowRunner()
 capability_cache = ModuleCapabilityCache()
+_session_function_locks: dict[str, threading.Lock] = {}
+_session_function_locks_guard = threading.Lock()
 
 app = FastAPI(title="SecurityFunctionPlatform")
 
@@ -305,6 +307,8 @@ def get_module_actions(module_id: str) -> dict[str, Any]:
         actions["runner_tools"] = {
             "preview": f"/api/modules/{module_id}/actions/preview",
             "run": f"/api/sessions/<session_id>/actions/run",
+            "list_flows": f"/api/modules/{module_id}/runner/flows",
+            "preview_flow": f"/api/modules/{module_id}/runner/flows/preview",
         }
         return actions
     except KeyError:
@@ -331,6 +335,18 @@ def preview_action(module_id: str, body: dict[str, Any]) -> dict[str, Any]:
 
     registry = _current_registry()
     steps = _action_steps(action)
+    workflow = _workflow_from_action(action)
+    execution_plan = runner.to_execution_plan(workflow).to_dict()
+    runner_plan = _runner_plan_from_workflow(
+        module_id,
+        str(action.get("id") or ""),
+        "action",
+        workflow,
+        session_id=session_id,
+        action_ids=[str(action.get("id") or "")],
+        max_parallel=_runner_max_parallel(action),
+    )
+    validation_errors = runner.validate(registry, workflow)
     missing_functions = [
         step["function_id"]
         for step in steps
@@ -346,7 +362,10 @@ def preview_action(module_id: str, body: dict[str, Any]) -> dict[str, Any]:
         "action": action,
         "steps_count": len(steps),
         "function_ids": [step["function_id"] for step in steps],
-        "ready": not missing_functions and not missing_results,
+        "execution_plan": execution_plan,
+        "runner_plan": runner_plan,
+        "validation_errors": validation_errors,
+        "ready": not missing_functions and not missing_results and not validation_errors,
         "missing_functions": missing_functions,
         "missing_results": missing_results,
         "requires_config": _string_list(action.get("requires_config")),
@@ -367,6 +386,58 @@ def preview_action(module_id: str, body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+@app.get("/api/modules/{module_id}/runner/flows")
+def list_module_runner_flows(module_id: str) -> dict[str, Any]:
+    try:
+        return _module_runner_flows(module_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "module_not_found", "message": "Module was not found"},
+        ) from None
+
+
+@app.post("/api/modules/{module_id}/runner/flows/preview")
+def preview_module_runner_flow(module_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    flow_id = str(body.get("flow_id") or "")
+    session_id = str(body.get("session_id") or "")
+    params = body.get("params") if isinstance(body.get("params"), dict) else {}
+    try:
+        flow = _runner_flow_or_404(module_id, flow_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "runner_flow_not_found", "message": "Runner flow was not found"},
+        ) from None
+    if session_id:
+        _get_session_or_404(session_id)
+
+    workflow, source = _workflow_from_runner_flow(module_id, flow, params)
+    registry = _current_registry()
+    validation_errors = runner.validate(registry, workflow)
+    runner_plan = _runner_plan_from_workflow(
+        module_id,
+        flow_id,
+        str(source.get("source_type") or "flow"),
+        workflow,
+        session_id=session_id,
+        workflow_id=str(source.get("workflow_id") or ""),
+        action_ids=_string_list(source.get("action_ids")),
+        max_parallel=_runner_flow_max_parallel(flow),
+        scope=str(flow.get("scope") or ""),
+    )
+    return {
+        "module_id": module_id,
+        "flow_id": flow_id,
+        "flow": flow,
+        "source": source,
+        "ready": not validation_errors,
+        "validation_errors": validation_errors,
+        "execution_plan": runner.to_execution_plan(workflow).to_dict(),
+        "runner_plan": runner_plan,
+    }
+
+
 @app.post("/api/sessions/{session_id}/actions/run")
 def run_action(session_id: str, body: dict[str, Any]) -> dict[str, Any]:
     module_id = str(body.get("module_id") or "")
@@ -381,10 +452,25 @@ def run_action(session_id: str, body: dict[str, Any]) -> dict[str, Any]:
             detail={"code": "action_not_found", "message": "Action was not found"},
         ) from None
     _require_action_approvals(action, approvals, params)
+    approved_params = _approved_action_params(action, approvals, params)
 
     registry = _current_registry()
     session = _get_session_or_404(session_id)
     context = _session_context(session, dict(session.get("raw_outputs") or {}))
+    missing_action_results = sorted(
+        result_key
+        for result_key in _string_list(action.get("requires_results"))
+        if result_key not in context.get("results", {})
+    )
+    if missing_action_results:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "missing_action_results",
+                "message": "Action requires prior result keys.",
+                "missing_results": missing_action_results,
+            },
+        )
     function_names = {item["id"]: item["name"] for item in registry.list_functions()}
     step_overrides = params.get("step_params") if isinstance(params.get("step_params"), dict) else {}
 
@@ -392,30 +478,20 @@ def run_action(session_id: str, body: dict[str, Any]) -> dict[str, Any]:
     ai_items: list[dict[str, Any]] = []
     results: list[dict[str, Any]] = []
     next_index = len(store.get_raw_output(session_id).get("items", [])) + 1
+    workflow = _workflow_from_action(action, step_overrides, approved_params)
+    validation_errors = runner.validate(registry, workflow)
+    if validation_errors:
+        raise HTTPException(status_code=400, detail={"errors": validation_errors})
+    store.save_execution_status(
+        session_id,
+        _execution_status_from_plan(runner.to_execution_plan(workflow), "pending"),
+    )
 
-    for offset, step in enumerate(_action_steps(action)):
-        function_id = step["function_id"]
-        try:
-            registry.get(function_id)
-        except KeyError:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "code": "unknown_function",
-                    "function_id": function_id,
-                    "message": f"Unknown function: {function_id}",
-                },
-            ) from None
-        step_params = dict(step.get("params") or {})
-        override = step_overrides.get(function_id)
-        if isinstance(override, dict):
-            step_params.update(override)
-        result = registry.run(function_id, context, step_params)
+    def collect_step_result(offset: int, result: Any) -> None:
         result_dict = result.to_dict()
-        context.setdefault("results", {})[result.result_key] = result_dict
         raw_output = store.append_raw_output_step(
             session_id,
-            next_index + offset,
+            next_index + offset - 1,
             result_dict,
             function_names.get(result.function_id, result.function_id),
         )
@@ -432,16 +508,34 @@ def run_action(session_id: str, body: dict[str, Any]) -> dict[str, Any]:
         )
         ai_items.append(ai_item)
         results.append(result_dict)
-        if step.get("stop_on_error") and result_dict.get("status") == "error":
-            break
+
+    runner.run(
+        registry,
+        workflow,
+        context,
+        on_step_start=lambda _index, _node: store.save_execution_status(
+            session_id,
+            _execution_status_from_context(context),
+        ),
+        on_step_result=lambda index, result: (
+            collect_step_result(index, result),
+            store.save_execution_status(session_id, _execution_status_from_context(context)),
+        ),
+    )
 
     completed = store.save_run_outputs(session_id, context)
+    execution_status = store.save_execution_status(
+        session_id,
+        _execution_status_from_context(context),
+    )
     return {
         "session_id": session_id,
         "module_id": module_id,
         "action_id": action_id,
         "status": "completed",
         "summary": completed["summary"],
+        "execution_plan": context.get("execution_plan", {}),
+        "execution_status": execution_status,
         "raw_output_items": raw_items,
         "ai_output_items": ai_items,
         "results": results,
@@ -768,6 +862,12 @@ def get_raw_output_map(session_id: str) -> dict[str, Any]:
     return store.get_raw_output_map(session_id)
 
 
+@app.get("/api/sessions/{session_id}/execution-status")
+def get_session_execution_status(session_id: str) -> dict[str, Any]:
+    _get_session_or_404(session_id)
+    return store.get_execution_status(session_id)
+
+
 @app.get("/api/sessions/{session_id}/raw-output/{raw_output_id}")
 def get_raw_output_by_id(session_id: str, raw_output_id: str) -> dict[str, Any]:
     _get_session_or_404(session_id)
@@ -782,41 +882,42 @@ def get_raw_output_by_id(session_id: str, raw_output_id: str) -> dict[str, Any]:
 
 @app.post("/api/sessions/{session_id}/functions/run")
 def run_session_function(session_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    registry = _current_registry()
-    session = _get_session_or_404(session_id)
-    function_id = str(body.get("function_id", ""))
-    try:
-        function_info = registry.get(function_id).info()
-    except KeyError:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "unknown_function",
-                "function_id": function_id,
-                "message": f"Unknown function: {function_id}",
-            },
-        ) from None
+    with _session_function_lock(session_id):
+        registry = _current_registry()
+        session = _get_session_or_404(session_id)
+        function_id = str(body.get("function_id", ""))
+        try:
+            function_info = registry.get(function_id).info()
+        except KeyError:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "unknown_function",
+                    "function_id": function_id,
+                    "message": f"Unknown function: {function_id}",
+                },
+            ) from None
 
-    context = _session_context(session, dict(session.get("raw_outputs") or {}))
-    result = registry.run(function_id, context, dict(body.get("params") or {}))
-    result_dict = result.to_dict()
-    context.setdefault("results", {})[result.result_key] = result_dict
-    next_index = len(store.get_raw_output(session_id).get("items", [])) + 1
-    raw_output = store.append_raw_output_step(
-        session_id,
-        next_index,
-        result_dict,
-        str(function_info.get("name") or function_id),
-    )
-    raw_output_item = raw_output["items"][-1]
-    ai_output_item = sort_raw_output_item(raw_output_item)
-    store.append_ai_output_item(session_id, ai_output_item)
-    session = store.save_run_outputs(session_id, context)
-    return {
-        "result": result_dict,
-        "summary": session["summary"],
-        "ai_output_item": ai_output_item,
-    }
+        context = _session_context(session, dict(session.get("raw_outputs") or {}))
+        result = registry.run(function_id, context, dict(body.get("params") or {}))
+        result_dict = result.to_dict()
+        context.setdefault("results", {})[result.result_key] = result_dict
+        next_index = len(store.get_raw_output(session_id).get("items", [])) + 1
+        raw_output = store.append_raw_output_step(
+            session_id,
+            next_index,
+            result_dict,
+            str(function_info.get("name") or function_id),
+        )
+        raw_output_item = raw_output["items"][-1]
+        ai_output_item = sort_raw_output_item(raw_output_item)
+        store.append_ai_output_item(session_id, ai_output_item)
+        session = store.save_run_outputs(session_id, context)
+        return {
+            "result": result_dict,
+            "summary": session["summary"],
+            "ai_output_item": ai_output_item,
+        }
 
 
 @app.get("/api/sessions/{session_id}/result")
@@ -1024,10 +1125,18 @@ def _run_session_workflow(
     store.clear_ai_output(session_id)
 
     function_names = {item["id"]: item["name"] for item in registry.list_functions()}
+    store.save_execution_status(
+        session_id,
+        _execution_status_from_plan(runner.to_execution_plan(workflow), "pending"),
+    )
     runner.run(
         registry,
         workflow,
         context,
+        on_step_start=lambda _index, _node: store.save_execution_status(
+            session_id,
+            _execution_status_from_context(context),
+        ),
         on_step_result=lambda index, result: store.append_raw_output_step(
             session_id,
             index,
@@ -1036,6 +1145,7 @@ def _run_session_workflow(
         ),
     )
     completed = store.save_run_outputs(session_id, context)
+    store.save_execution_status(session_id, _execution_status_from_context(context))
     ai_output = sort_raw_outputs(store.get_raw_output(session_id))
     store.save_ai_output(session_id, ai_output)
     completed["ai_output"] = ai_output
@@ -1066,10 +1176,326 @@ def _action_steps(action: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "function_id": function_id,
                 "params": step.get("params") if isinstance(step.get("params"), dict) else {},
+                "step_id": str(step.get("step_id") or step.get("id") or ""),
+                "depends_on": _string_list(step.get("depends_on")),
+                "requires_results": _string_list(step.get("requires_results")),
                 "stop_on_error": bool(step.get("stop_on_error", False)),
+                "timeout_seconds": _positive_int(step.get("timeout_seconds")),
+                "when": step.get("when") if isinstance(step.get("when"), dict) else {},
+                "resource_locks": _string_list(step.get("resource_locks")),
+                "parallel_safe": bool(step.get("parallel_safe", False)),
+                "estimated_duration_seconds": _positive_int(
+                    step.get("estimated_duration_seconds")
+                ),
             }
         )
     return normalized
+
+
+def _workflow_from_action(
+    action: dict[str, Any],
+    step_overrides: dict[str, Any] | None = None,
+    approved_params: dict[str, Any] | None = None,
+) -> WorkflowDefinition:
+    overrides = step_overrides if isinstance(step_overrides, dict) else {}
+    approved = approved_params if isinstance(approved_params, dict) else {}
+    steps: list[WorkflowStep] = []
+    for step in _action_steps(action):
+        function_id = step["function_id"]
+        step_params = dict(step.get("params") or {})
+        step_params.update(approved)
+        override = overrides.get(function_id)
+        if isinstance(override, dict):
+            step_params.update(override)
+        step_id_override = overrides.get(str(step.get("step_id") or ""))
+        if isinstance(step_id_override, dict):
+            step_params.update(step_id_override)
+        steps.append(
+            WorkflowStep(
+                function_id=function_id,
+                params=step_params,
+                step_id=str(step.get("step_id") or ""),
+                depends_on=_string_list(step.get("depends_on")),
+                requires_results=_string_list(step.get("requires_results")),
+                stop_on_error=bool(step.get("stop_on_error", False)),
+                timeout_seconds=_positive_int(step.get("timeout_seconds")),
+                when=step.get("when") if isinstance(step.get("when"), dict) else {},
+                resource_locks=_string_list(step.get("resource_locks")),
+                parallel_safe=bool(step.get("parallel_safe", False)),
+                estimated_duration_seconds=_positive_int(
+                    step.get("estimated_duration_seconds")
+                ),
+            )
+        )
+    return WorkflowDefinition(
+        name=str(action.get("id") or action.get("label") or "action"),
+        steps=steps,
+    )
+
+
+def _module_runner_flows(module_id: str) -> dict[str, Any]:
+    skill = module_store.get_module_skill(module_id)
+    playbook = skill.get("playbook") if isinstance(skill.get("playbook"), dict) else {}
+    main_flows = playbook.get("main_flows") if isinstance(playbook.get("main_flows"), list) else []
+    contract = (
+        playbook.get("runner_contract")
+        if isinstance(playbook.get("runner_contract"), dict)
+        else {}
+    )
+    contract_flows = {
+        str(item.get("flow_id") or ""): item
+        for item in contract.get("flows", [])
+        if isinstance(item, dict) and str(item.get("flow_id") or "")
+    }
+    flows: list[dict[str, Any]] = []
+    for flow in main_flows:
+        if not isinstance(flow, dict):
+            continue
+        flow_id = str(flow.get("flow_id") or "")
+        if not flow_id:
+            continue
+        runner_config = contract_flows.get(flow_id, {})
+        flows.append(
+            {
+                **flow,
+                "runner": runner_config,
+                "runner_ready": bool(runner_config.get("runner_ready", False)),
+                "runner_source_type": str(runner_config.get("source_type") or ""),
+                "scope": str(runner_config.get("scope") or ""),
+            }
+        )
+    return {
+        "schema_id": "security_function_platform.module_runner_flows.v1",
+        "module_id": module_id,
+        "runner": {
+            "name": str(contract.get("runner") or "go_dag_runner"),
+            "plan_schema_id": str(
+                contract.get("plan_schema_id")
+                or "security_function_platform.runner_plan.v1"
+            ),
+            "default_max_parallel": _positive_int(contract.get("default_max_parallel")) or 1,
+        },
+        "flows_count": len(flows),
+        "runner_ready_count": sum(1 for flow in flows if flow["runner_ready"]),
+        "flows": flows,
+    }
+
+
+def _runner_flow_or_404(module_id: str, flow_id: str) -> dict[str, Any]:
+    for flow in _module_runner_flows(module_id)["flows"]:
+        if str(flow.get("flow_id") or "") == flow_id:
+            return flow
+    raise KeyError(flow_id)
+
+
+def _workflow_from_runner_flow(
+    module_id: str,
+    flow: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[WorkflowDefinition, dict[str, Any]]:
+    runner_config = (
+        flow.get("runner") if isinstance(flow.get("runner"), dict) else {}
+    )
+    source_type = str(runner_config.get("source_type") or "")
+    if source_type == "workflow":
+        workflow_id = str(runner_config.get("workflow_id") or flow.get("workflow_id") or "")
+        workflow = _workflow_from_template(workflow_id)
+        return workflow, {"source_type": "workflow", "workflow_id": workflow_id}
+    if source_type == "action_sequence":
+        action_ids = _runner_action_ids(runner_config, params)
+        workflow = _workflow_from_action_sequence(
+            module_id,
+            str(flow.get("flow_id") or ""),
+            action_ids,
+            params,
+        )
+        return workflow, {"source_type": "action_sequence", "action_ids": action_ids}
+    raise HTTPException(
+        status_code=400,
+        detail={
+            "code": "runner_flow_not_supported",
+            "message": "Runner flow does not declare a supported source_type.",
+            "flow_id": str(flow.get("flow_id") or ""),
+            "source_type": source_type,
+        },
+    )
+
+
+def _runner_action_ids(runner_config: dict[str, Any], params: dict[str, Any]) -> list[str]:
+    action_ids = _string_list(runner_config.get("action_ids"))
+    dynamic_default = str(runner_config.get("dynamic_action_default") or "")
+    dynamic_choices = set(_string_list(runner_config.get("dynamic_action_choices")))
+    requested_dynamic = str(params.get("dynamic_action_id") or dynamic_default)
+    if dynamic_default:
+        if requested_dynamic not in dynamic_choices:
+            requested_dynamic = dynamic_default
+        action_ids = [requested_dynamic if item == "{dynamic_action}" else item for item in action_ids]
+    include_cleanup = bool(params.get("include_cleanup", runner_config.get("include_cleanup", False)))
+    cleanup_action = str(runner_config.get("cleanup_action_id") or "")
+    if include_cleanup and cleanup_action and cleanup_action not in action_ids:
+        action_ids.append(cleanup_action)
+    return action_ids
+
+
+def _workflow_from_action_sequence(
+    module_id: str,
+    flow_id: str,
+    action_ids: list[str],
+    params: dict[str, Any] | None = None,
+) -> WorkflowDefinition:
+    flow_params = params if isinstance(params, dict) else {}
+    steps: list[WorkflowStep] = []
+    previous_terminal_ids: list[str] = []
+    for action_index, action_id in enumerate(action_ids, start=1):
+        action = _module_action_or_404(module_id, action_id)
+        approved_params = _approved_action_params(action, {}, flow_params)
+        action_steps = _workflow_from_action(
+            action,
+            approved_params=approved_params,
+        ).steps
+        if not action_steps:
+            continue
+        prefix = f"{_safe_runner_id(action_id)}_{action_index:02d}"
+        local_ids: list[str] = []
+        id_map: dict[str, str] = {}
+        for step_index, step in enumerate(action_steps, start=1):
+            original_id = str(step.step_id or "")
+            local_id = f"{prefix}_{original_id or _safe_runner_id(step.function_id)}_{step_index:02d}"
+            local_ids.append(local_id)
+            if original_id:
+                id_map[original_id] = local_id
+        depended_local_ids: set[str] = set()
+        for step, local_id in zip(action_steps, local_ids):
+            depends_on = [
+                id_map.get(dependency, dependency)
+                for dependency in step.depends_on
+            ]
+            depended_local_ids.update(depends_on)
+            if not depends_on:
+                depends_on = list(previous_terminal_ids)
+            steps.append(
+                WorkflowStep(
+                    function_id=step.function_id,
+                    params=dict(step.params),
+                    step_id=local_id,
+                    depends_on=depends_on,
+                    requires_results=list(step.requires_results),
+                    stop_on_error=step.stop_on_error,
+                    timeout_seconds=step.timeout_seconds,
+                    when=dict(step.when),
+                    resource_locks=list(step.resource_locks),
+                    parallel_safe=step.parallel_safe,
+                    estimated_duration_seconds=step.estimated_duration_seconds,
+                )
+            )
+        previous_terminal_ids = [node_id for node_id in local_ids if node_id not in depended_local_ids]
+        if not previous_terminal_ids:
+            previous_terminal_ids = list(local_ids)
+    return WorkflowDefinition(name=flow_id or "runner_action_sequence", steps=steps)
+
+
+def _runner_plan_from_workflow(
+    module_id: str,
+    flow_id: str,
+    source_type: str,
+    workflow: WorkflowDefinition,
+    session_id: str = "",
+    workflow_id: str = "",
+    action_ids: list[str] | None = None,
+    max_parallel: int = 1,
+    scope: str = "",
+) -> dict[str, Any]:
+    plan = runner.to_execution_plan(workflow).to_dict()
+    raw_nodes = plan.get("nodes") if isinstance(plan.get("nodes"), list) else []
+    nodes = [_runner_node_contract(node) for node in raw_nodes if isinstance(node, dict)]
+    return {
+        "schema_id": "security_function_platform.runner_plan.v1",
+        "runner": "go_dag_runner",
+        "module_id": module_id,
+        "flow_id": flow_id,
+        "scope": scope or "single_sample",
+        "session_id": session_id,
+        "source": {
+            "type": source_type,
+            "workflow_id": workflow_id,
+            "action_ids": action_ids or [],
+        },
+        "execution": {
+            "mode": "async_job",
+            "max_parallel": max(1, max_parallel),
+            "scheduler": "kahn_topological_ready_queue",
+            "default_stop_on_error": False,
+        },
+        "api_contract": {
+            "function_run_endpoint": f"/api/sessions/{session_id or '<session_id>'}/functions/run",
+            "session_execution_status_endpoint": (
+                f"/api/sessions/{session_id or '<session_id>'}/execution-status"
+            ),
+            "raw_output_map_endpoint": f"/api/sessions/{session_id or '<session_id>'}/raw-output-map",
+        },
+        "plan": {
+            "plan_name": plan.get("name", ""),
+            "total_nodes": len(nodes),
+            "nodes": nodes,
+        },
+    }
+
+
+def _runner_max_parallel(action: dict[str, Any]) -> int:
+    return _positive_int(action.get("max_parallel")) or 1
+
+
+def _runner_flow_max_parallel(flow: dict[str, Any]) -> int:
+    runner_config = flow.get("runner") if isinstance(flow.get("runner"), dict) else {}
+    return _positive_int(runner_config.get("max_parallel")) or 1
+
+
+def _runner_node_contract(node: dict[str, Any]) -> dict[str, Any]:
+    data = dict(node)
+    params = data.get("params") if isinstance(data.get("params"), dict) else {}
+    if _positive_int(data.get("timeout_seconds")) <= 0:
+        timeout_seconds = _positive_int(params.get("timeout_seconds"))
+        if timeout_seconds > 0:
+            data["timeout_seconds"] = timeout_seconds
+    resource_locks = _string_list(data.get("resource_locks"))
+    if not resource_locks and _function_uses_vm(str(data.get("function_id") or "")):
+        resource_locks = ["vm:default"]
+    if resource_locks:
+        data["resource_locks"] = resource_locks
+    if "parallel_safe" not in data:
+        data["parallel_safe"] = not resource_locks
+    return data
+
+
+def _function_uses_vm(function_id: str) -> bool:
+    return function_id.startswith("dynamic.vm_") or function_id.startswith("malware.vm_")
+
+
+def _positive_int(value: Any) -> int:
+    try:
+        integer = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return integer if integer > 0 else 0
+
+
+def _safe_runner_id(value: str) -> str:
+    safe = "".join(char if char.isalnum() or char in {"_", "-", "."} else "_" for char in value)
+    return safe.strip("._-") or "node"
+
+
+def _approved_action_params(
+    action: dict[str, Any],
+    approvals: dict[str, Any],
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+    for approval in _string_list(action.get("requires_approvals")):
+        if approval in approvals:
+            values[approval] = approvals[approval]
+        elif approval in params:
+            values[approval] = params[approval]
+    return values
 
 
 def _registry_has_function(registry: FunctionRegistry, function_id: str) -> bool:
@@ -1078,6 +1504,15 @@ def _registry_has_function(registry: FunctionRegistry, function_id: str) -> bool
     except KeyError:
         return False
     return True
+
+
+def _session_function_lock(session_id: str) -> threading.Lock:
+    with _session_function_locks_guard:
+        lock = _session_function_locks.get(session_id)
+        if lock is None:
+            lock = threading.Lock()
+            _session_function_locks[session_id] = lock
+        return lock
 
 
 def _require_action_approvals(
@@ -1105,6 +1540,62 @@ def _require_action_approvals(
                 "missing": missing,
             },
         )
+
+
+def _execution_status_from_plan(plan: Any, status: str) -> dict[str, Any]:
+    plan_dict = plan.to_dict() if hasattr(plan, "to_dict") else {}
+    nodes = plan_dict.get("nodes") if isinstance(plan_dict.get("nodes"), list) else []
+    return {
+        "status": status,
+        "execution_plan": {
+            "plan_name": plan_dict.get("name", ""),
+            "total_nodes": len(nodes),
+            "planned_nodes": nodes,
+            "order": [],
+        },
+        "current_step": {},
+        "last_completed_step": {},
+        "failed_step": {},
+        "completed_steps": [],
+        "stopped_reason": "",
+    }
+
+
+def _execution_status_from_context(context: dict[str, Any]) -> dict[str, Any]:
+    execution = context.get("execution_plan")
+    if not isinstance(execution, dict):
+        return {
+            "status": "not_started",
+            "execution_plan": {},
+            "current_step": {},
+            "last_completed_step": {},
+            "failed_step": {},
+            "completed_steps": [],
+            "stopped_reason": "",
+        }
+    nodes = execution.get("nodes") if isinstance(execution.get("nodes"), dict) else {}
+    order = execution.get("order") if isinstance(execution.get("order"), list) else []
+    current = execution.get("current_node") if isinstance(execution.get("current_node"), dict) else {}
+    last_completed = (
+        execution.get("last_completed_node")
+        if isinstance(execution.get("last_completed_node"), dict)
+        else {}
+    )
+    failed = execution.get("failed_node") if isinstance(execution.get("failed_node"), dict) else {}
+    return {
+        "status": str(execution.get("status") or "unknown"),
+        "execution_plan": {
+            "plan_name": str(execution.get("plan_name") or ""),
+            "total_nodes": int(execution.get("total_nodes") or len(nodes)),
+            "order": order,
+            "nodes": nodes,
+        },
+        "current_step": current,
+        "last_completed_step": last_completed,
+        "failed_step": failed,
+        "completed_steps": order,
+        "stopped_reason": str(execution.get("stopped_reason") or ""),
+    }
 
 
 def _session_context(session: dict[str, Any], results: dict[str, Any]) -> dict[str, Any]:
